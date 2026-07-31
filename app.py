@@ -597,11 +597,14 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
 def run_server():
-    socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("", PORT), ReconciliationHandler) as httpd:
+    with ThreadedHTTPServer(("", PORT), ReconciliationHandler) as httpd:
         print("============================================================")
-        print(" Servidor de Conferencia Fiscal iniciado com sucesso!")
+        print(" Servidor de Conferência Fiscal (Multi-Thread) iniciado com sucesso!")
         print(f" Acesse no seu navegador: http://localhost:{PORT}")
         print("============================================================")
         try:

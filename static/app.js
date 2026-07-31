@@ -500,20 +500,22 @@ document.addEventListener('DOMContentLoaded', () => {
     activeProgressTimer = setInterval(() => {
       const elapsedSec = (performance.now() - startTime) / 1000;
       
-      // Progressão constante e fluída em tempo real:
-      // Avance sem estagnar em 98% ou disparar rápido demais no início
+      // Progressão suave e perfeitamente cadenciada proporcional ao tempo real de execução:
+      // Evolui constantemente a cada segundo sem dar saltos abruptos ou parar em 99%
       let target = 0;
-      if (elapsedSec <= 4) {
-        target = (elapsedSec / 4) * 45; // 0% a 45% nos primeiros 4s
-      } else if (elapsedSec <= 15) {
-        target = 45 + ((elapsedSec - 4) / 11) * 40; // 45% a 85% entre 4s e 15s
-      } else if (elapsedSec <= 40) {
-        target = 85 + ((elapsedSec - 15) / 25) * 12; // 85% a 97% até 40s
+      if (elapsedSec <= 15) {
+        target = (elapsedSec / 15) * 20; // 0% a 20% nos primeiros 15s
+      } else if (elapsedSec <= 45) {
+        target = 20 + ((elapsedSec - 15) / 30) * 35; // 20% a 55% entre 15s e 45s
+      } else if (elapsedSec <= 85) {
+        target = 55 + ((elapsedSec - 45) / 40) * 33; // 55% a 88% entre 45s e 85s
+      } else if (elapsedSec <= 120) {
+        target = 88 + ((elapsedSec - 85) / 35) * 9; // 88% a 97% até 2 minutos
       } else {
-        target = 97 + Math.min(2.5, (elapsedSec - 40) * 0.05); // >40s: 97.1%, 97.2%... sem parar
+        target = 97 + Math.min(2.5, (elapsedSec - 120) * 0.02); // >2min: 97.1%, 97.2%... avanço constante
       }
 
-      currentPercentValue = Math.min(99.2, Math.max(currentPercentValue + 0.1, target));
+      currentPercentValue = Math.min(99.2, Math.max(currentPercentValue + 0.05, target));
 
       const displayVal = Math.floor(currentPercentValue);
       progressBarFill.style.width = `${currentPercentValue.toFixed(1)}%`;
@@ -529,7 +531,7 @@ document.addEventListener('DOMContentLoaded', () => {
         stepIdx = 3;
         progressStepText.textContent = stepsList[3];
       }
-    }, 50);
+    }, 100);
   }
 
   function finishSmoothProgress() {
