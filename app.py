@@ -258,26 +258,25 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                         file2_bytes = single_bytes
                 else:
                     candidates = [(fp, zip_data_map[fp]) for fp in matching_fpaths]
-                    selected_erp_bytes = None
-                    selected_city_bytes = None
+                    if len(candidates) >= 2:
+                        fA_bytes = candidates[0][1]
+                        fB_bytes = candidates[1][1]
 
-                    for fp, bcontent in candidates:
-                        fp_base = os.path.basename(fp).lower()
-                        if 'modelo' in fp_base or 'emitidas' in fp_base or 'nfe' in fp_base or 'nota fiscal' in fp_base:
-                            e_items = erp_parser.parse_file(bcontent)
-                            if len(e_items) > 0 and not selected_erp_bytes:
-                                selected_erp_bytes = bcontent
+                        e1 = erp_parser.parse_file(fA_bytes)
+                        c1 = c_parser_cls().parse(fB_bytes)
+                        score1 = len(e1) + len(c1)
 
-                        c_items = c_parser_cls().parse(bcontent)
-                        if len(c_items) > 0 and not selected_city_bytes:
-                            selected_city_bytes = bcontent
+                        e2 = erp_parser.parse_file(fB_bytes)
+                        c2 = c_parser_cls().parse(fA_bytes)
+                        score2 = len(e2) + len(c2)
 
-                    if not selected_erp_bytes or not selected_city_bytes:
-                        selected_erp_bytes = candidates[0][1]
-                        selected_city_bytes = candidates[1][1]
-
-                    file1_bytes = selected_erp_bytes
-                    file2_bytes = selected_city_bytes
+                        if score1 >= score2:
+                            file1_bytes, file2_bytes = fA_bytes, fB_bytes
+                        else:
+                            file1_bytes, file2_bytes = fB_bytes, fA_bytes
+                    elif len(candidates) == 1:
+                        file1_bytes = candidates[0][1]
+                        file2_bytes = candidates[0][1]
 
                 if not file1_bytes or not file2_bytes:
                     return None
