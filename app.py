@@ -10,6 +10,7 @@ import os
 import sys
 import io
 import zipfile
+import concurrent.futures
 from typing import Dict, Any, List
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -46,7 +47,7 @@ from engine.reconciler import ReconciliationEngine
 PORT = 8000
 
 ALL_CITIES_CONFIG = [
-    {"name": "Recife", "folder": "Recife", "erp": "Relatório de Notas Fiscais Emitidas Recife - MODELO.pdf", "city_file": "Relatório de Notas Fiscais Emitidas Recife - MODELO.pdf", "parser": RecifeParser},
+    {"name": "Recife", "folder": "Recife", "erp": "NFe_E_V3_06199364_20260601_20260630.csv", "city_file": "Relatório de Notas Fiscais Emitidas Recife.pdf", "parser": RecifeParser},
     {"name": "São Paulo", "folder": "São Paulo", "erp": "NFSe_E_24851175_20260601_20260630.csv", "city_file": "Relatório de Notas Fiscais Emitidas São Paulo.pdf", "parser": SaoPauloParser},
     {"name": "São José dos Campos", "folder": "São Jose dos Campos", "erp": "Nota Fiscal.csv", "city_file": "Relatório de Notas Fiscais Emitidas São José dos Campos.pdf", "parser": SaoJoseDosCamposParser},
     {"name": "Santos", "folder": "Santos", "erp": "Relatório de Notas Fiscais Emitidas Santos.pdf", "city_file": "consulta_xlsx_0.xlsx", "parser": SantosParser},
@@ -112,16 +113,7 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
 
     def handle_batch_demo_reconcile(self):
         try:
-            results_by_city = []
-            total_global_erp_val = 0.0
-            total_global_pref_val = 0.0
-            matched_cities = 0
-            divergent_cities = 0
-
-            erp_parser = ERPParser()
-            engine = ReconciliationEngine(tolerance=0.04)
-
-            for cfg in ALL_CITIES_CONFIG:
+            def process_single_city_demo(cfg):
                 cname = cfg["name"]
                 cfolder = cfg["folder"]
                 c_parser_cls = cfg["parser"]
@@ -131,7 +123,10 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                 city_p = os.path.join(city_dir, cfg["city_file"])
 
                 if not os.path.exists(erp_p) or not os.path.exists(city_p):
-                    continue
+                    return None
+
+                erp_parser = ERPParser()
+                engine = ReconciliationEngine(tolerance=0.04)
 
                 erp_items = erp_parser.parse_file(erp_p)
                 city_items = c_parser_cls().parse(city_p)
@@ -140,20 +135,26 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                 resumo = rec_res.get("resumo", {})
                 is_divergent = resumo.get("divergentes_qtd", 0) > 0 or resumo.get("somente_erp_qtd", 0) > 0 or resumo.get("somente_prefeitura_qtd", 0) > 0
 
-                if is_divergent:
-                    divergent_cities += 1
-                else:
-                    matched_cities += 1
-
-                total_global_erp_val += resumo.get("total_erp_valor", 0.0)
-                total_global_pref_val += resumo.get("total_prefeitura_valor", 0.0)
-
-                results_by_city.append({
+                return {
                     "city": cname,
                     "resumo": resumo,
                     "items": rec_res.get("items", []),
-                    "status": "DIVERGENTE" if is_divergent else "CONCILIADO"
-                })
+                    "status": "DIVERGENTE" if is_divergent else "CONCILIADO",
+                    "is_divergent": is_divergent
+                }
+
+            results_by_city = []
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+                futures = [executor.submit(process_single_city_demo, cfg) for cfg in ALL_CITIES_CONFIG]
+                for f in futures:
+                    res = f.result()
+                    if res:
+                        results_by_city.append(res)
+
+            total_global_erp_val = sum(r["resumo"].get("total_erp_valor", 0.0) for r in results_by_city)
+            total_global_pref_val = sum(r["resumo"].get("total_prefeitura_valor", 0.0) for r in results_by_city)
+            matched_cities = sum(1 for r in results_by_city if not r["is_divergent"])
+            divergent_cities = sum(1 for r in results_by_city if r["is_divergent"])
 
             total_cities = len(results_by_city)
             accuracy = (matched_cities / total_cities * 100) if total_cities > 0 else 100.0
@@ -204,30 +205,23 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             zf = zipfile.ZipFile(io.BytesIO(zip_bytes))
-            file_names = zf.namelist()
+            
+            # Carrega arquivos do ZIP para mapa de memória (Thread Safe)
+            zip_data_map = {}
+            for fname in zf.namelist():
+                if not fname.endswith('/'):
+                    zip_data_map[fname] = zf.read(fname)
 
-            results_by_city = []
-            total_global_erp_val = 0.0
-            total_global_pref_val = 0.0
-            matched_cities = 0
-            divergent_cities = 0
-
-            erp_parser = ERPParser()
-            engine = ReconciliationEngine(tolerance=0.04)
-
-            # Agrupa arquivos por pasta de cidade dentro do ZIP
             city_folders = {}
-            for fname in file_names:
+            for fname in zip_data_map.keys():
                 parts = fname.replace('\\', '/').split('/')
                 if len(parts) >= 2:
                     cfolder = parts[0].strip()
                     if cfolder not in city_folders:
                         city_folders[cfolder] = []
-                    if not fname.endswith('/'):
-                        city_folders[cfolder].append(fname)
+                    city_folders[cfolder].append(fname)
 
-            # Processamento Inteligente para as 18 Prefeituras
-            for cfg in ALL_CITIES_CONFIG:
+            def process_city_upload(cfg):
                 cname = cfg["name"]
                 cfolder = cfg["folder"]
                 c_parser_cls = cfg["parser"]
@@ -239,15 +233,17 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                         break
 
                 if not matching_fpaths:
-                    continue
+                    return None
+
+                erp_parser = ERPParser()
+                engine = ReconciliationEngine(tolerance=0.04)
 
                 file1_bytes = None
                 file2_bytes = None
 
                 if len(matching_fpaths) == 1:
-                    # Caso haja 1 único arquivo no ZIP para essa cidade (ex: Recife)
                     single_fp = matching_fpaths[0]
-                    single_bytes = zf.read(single_fp)
+                    single_bytes = zip_data_map[single_fp]
                     items_as_erp = erp_parser.parse_file(single_bytes)
 
                     local_dir = os.path.join(CURRENT_DIR, 'Relatórios Modelo', cfolder)
@@ -261,16 +257,10 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                         with open(local_erp_p, 'rb') as f: file1_bytes = f.read()
                         file2_bytes = single_bytes
                 else:
-                    # Pareamento inteligente por nome de arquivo ou assinatura
-                    candidates = []
-                    for fp in matching_fpaths:
-                        bcontent = zf.read(fp)
-                        candidates.append((fp, bcontent))
-
+                    candidates = [(fp, zip_data_map[fp]) for fp in matching_fpaths]
                     selected_erp_bytes = None
                     selected_city_bytes = None
 
-                    # Mapeia candidatos com base na assinatura
                     for fp, bcontent in candidates:
                         fp_base = os.path.basename(fp).lower()
                         if 'modelo' in fp_base or 'emitidas' in fp_base or 'nfe' in fp_base or 'nota fiscal' in fp_base:
@@ -290,7 +280,7 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                     file2_bytes = selected_city_bytes
 
                 if not file1_bytes or not file2_bytes:
-                    continue
+                    return None
 
                 erp_items = erp_parser.parse_file(file1_bytes)
                 city_items = c_parser_cls().parse(file2_bytes)
@@ -303,26 +293,32 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                         city_items = alt_city
 
                 if not erp_items or not city_items:
-                    continue
+                    return None
 
                 rec_res = engine.reconcile(erp_items, city_items)
                 resumo = rec_res.get("resumo", {})
                 is_divergent = resumo.get("divergentes_qtd", 0) > 0 or resumo.get("somente_erp_qtd", 0) > 0 or resumo.get("somente_prefeitura_qtd", 0) > 0
 
-                if is_divergent:
-                    divergent_cities += 1
-                else:
-                    matched_cities += 1
-
-                total_global_erp_val += resumo.get("total_erp_valor", 0.0)
-                total_global_pref_val += resumo.get("total_prefeitura_valor", 0.0)
-
-                results_by_city.append({
+                return {
                     "city": cname,
                     "resumo": resumo,
                     "items": rec_res.get("items", []),
-                    "status": "DIVERGENTE" if is_divergent else "CONCILIADO"
-                })
+                    "status": "DIVERGENTE" if is_divergent else "CONCILIADO",
+                    "is_divergent": is_divergent
+                }
+
+            results_by_city = []
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+                futures = [executor.submit(process_city_upload, cfg) for cfg in ALL_CITIES_CONFIG]
+                for f in futures:
+                    res = f.result()
+                    if res:
+                        results_by_city.append(res)
+
+            total_global_erp_val = sum(r["resumo"].get("total_erp_valor", 0.0) for r in results_by_city)
+            total_global_pref_val = sum(r["resumo"].get("total_prefeitura_valor", 0.0) for r in results_by_city)
+            matched_cities = sum(1 for r in results_by_city if not r["is_divergent"])
+            divergent_cities = sum(1 for r in results_by_city if r["is_divergent"])
 
             total_cities = len(results_by_city)
             accuracy = (matched_cities / total_cities * 100) if total_cities > 0 else 100.0

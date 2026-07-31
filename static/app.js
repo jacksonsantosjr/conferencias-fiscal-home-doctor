@@ -499,9 +499,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     activeProgressTimer = setInterval(() => {
       const elapsedSec = (performance.now() - startTime) / 1000;
-      // Animação assintótica contínua: avança em tempo real sem travar em números fixos
-      const targetPercent = 99 * (1 - Math.exp(-elapsedSec / 12));
-      currentPercentValue = Math.min(98.8, Math.max(currentPercentValue + 0.05, targetPercent));
+      // Animação super fluída ajustada para o backend em paralelo de 1.2s
+      const targetPercent = 99 * (1 - Math.exp(-elapsedSec / 1.5));
+      currentPercentValue = Math.min(98.8, Math.max(currentPercentValue + 1.2, targetPercent));
 
       const displayVal = Math.floor(currentPercentValue);
       progressBarFill.style.width = `${currentPercentValue.toFixed(1)}%`;
@@ -517,7 +517,7 @@ document.addEventListener('DOMContentLoaded', () => {
         stepIdx = 3;
         progressStepText.textContent = stepsList[3];
       }
-    }, 80);
+    }, 40);
   }
 
   function finishSmoothProgress() {
