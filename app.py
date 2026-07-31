@@ -1,0 +1,348 @@
+"""
+Servidor Web de Conferência Fiscal do Faturamento (Python Standard Library HTTP Server).
+Suporta Prefeituras de Recife, SP, SJC, Santos, Campinas, Brasília, RJ, Volta Redonda, João Pessoa, Fortaleza, São Luís, Belém, Curitiba, Uberlândia, Salvador, Belo Horizonte, Goiânia e Aracaju com roteamento de parsers dinâmicos.
+"""
+
+import http.server
+import socketserver
+import json
+import os
+import sys
+from typing import Dict, Any
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+if CURRENT_DIR not in sys.path:
+    sys.path.insert(0, CURRENT_DIR)
+
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
+from parsers.erp_parser import ERPParser
+from parsers.recife_parser import RecifeParser
+from parsers.sao_paulo_parser import SaoPauloParser
+from parsers.sao_jose_dos_campos_parser import SaoJoseDosCamposParser
+from parsers.santos_parser import SantosParser
+from parsers.campinas_parser import CampinasParser
+from parsers.brasilia_parser import BrasiliaParser
+from parsers.rio_de_janeiro_parser import RioDeJaneiroParser
+from parsers.volta_redonda_parser import VoltaRedondaParser
+from parsers.joao_pessoa_parser import JoaoPessoaParser
+from parsers.fortaleza_parser import FortalezaParser
+from parsers.sao_luis_parser import SaoLuisParser
+from parsers.belem_parser import BelemParser
+from parsers.curitiba_parser import CuritibaParser
+from parsers.uberlandia_parser import UberlandiaParser
+from parsers.salvador_parser import SalvadorParser
+from parsers.belo_horizonte_parser import BeloHorizonteParser
+from parsers.goiania_parser import GoianiaParser
+from parsers.aracaju_parser import AracajuParser
+from engine.reconciler import ReconciliationEngine
+
+PORT = 8000
+
+def parse_multipart_data(data: bytes, boundary: bytes) -> Dict[str, Any]:
+    fields = {}
+    parts = data.split(b'--' + boundary)
+    for part in parts:
+        if not part or part == b'--\r\n' or part == b'--':
+            continue
+        if b'\r\n\r\n' in part:
+            header_part, content = part.split(b'\r\n\r\n', 1)
+            if content.endswith(b'\r\n'):
+                content = content[:-2]
+            header_text = header_part.decode('latin1', errors='replace')
+            name = None
+            for line in header_text.split('\r\n'):
+                if 'Content-Disposition:' in line:
+                    for item in line.split(';'):
+                        item = item.strip()
+                        if item.startswith('name='):
+                            name = item.split('=', 1)[1].strip('"\'')
+            if name:
+                fields[name] = content
+    return fields
+
+
+class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
+    def translate_path(self, path):
+        if path == "/" or path == "/index.html":
+            return os.path.join(CURRENT_DIR, "static", "index.html")
+        elif path.startswith("/static/"):
+            rel_path = path[len("/static/"):]
+            return os.path.join(CURRENT_DIR, "static", rel_path)
+        return super().translate_path(path)
+
+    def do_POST(self):
+        if self.path == "/api/reconcile-demo":
+            self.handle_demo_reconcile()
+        elif self.path == "/api/reconcile":
+            self.handle_upload_reconcile()
+        else:
+            self.send_error(404, "Endpoint não encontrado")
+
+    def handle_demo_reconcile(self):
+        try:
+            content_length = int(self.headers.get('content-length', 0))
+            city = "Recife"
+            if content_length > 0:
+                body = self.rfile.read(content_length)
+                try:
+                    payload = json.loads(body.decode('utf-8'))
+                    city = payload.get("city", "Recife")
+                except Exception:
+                    pass
+
+            city_norm = city.lower()
+
+            if "são paulo" in city_norm or "sao paulo" in city_norm:
+                sp_dir = os.path.join(CURRENT_DIR, "Relatórios Modelo", "São Paulo")
+                erp_path = os.path.join(sp_dir, "NFSe_E_24851175_20260601_20260630.csv")
+                city_path = os.path.join(sp_dir, "Relatório de Notas Fiscais Emitidas São Paulo.pdf")
+                city_parser = SaoPauloParser()
+
+            elif "jose" in city_norm or "josé" in city_norm:
+                sjc_dir = os.path.join(CURRENT_DIR, "Relatórios Modelo", "São Jose dos Campos")
+                erp_path = os.path.join(sjc_dir, "Nota Fiscal.csv")
+                city_path = os.path.join(sjc_dir, "Relatório de Notas Fiscais Emitidas São José dos Campos.pdf")
+                city_parser = SaoJoseDosCamposParser()
+
+            elif "santos" in city_norm:
+                san_dir = os.path.join(CURRENT_DIR, "Relatórios Modelo", "Santos")
+                erp_path = os.path.join(san_dir, "Relatório de Notas Fiscais Emitidas Santos.pdf")
+                city_path = os.path.join(san_dir, "consulta_xlsx_0.xlsx")
+                city_parser = SantosParser()
+
+            elif "campinas" in city_norm:
+                cam_dir = os.path.join(CURRENT_DIR, "Relatórios Modelo", "Campinas")
+                erp_path = os.path.join(cam_dir, "Relatório de Notas Fiscais Emitidas Campinas.pdf")
+                city_path = os.path.join(cam_dir, "Nota Fiscal Prefeitura de Campinas.csv")
+                city_parser = CampinasParser()
+
+            elif "brasilia" in city_norm or "brasília" in city_norm:
+                bsb_dir = os.path.join(CURRENT_DIR, "Relatórios Modelo", "Brasilia")
+                erp_path = os.path.join(bsb_dir, "Relatório de Notas Fiscais Emitidas Brasilia.pdf")
+                city_path = os.path.join(bsb_dir, "Nota Fiscal Prefeitura de Brasilia.csv")
+                city_parser = BrasiliaParser()
+
+            elif "rio de janeiro" in city_norm or "rio" in city_norm:
+                rj_dir = os.path.join(CURRENT_DIR, "Relatórios Modelo", "Rio de Janeiro")
+                erp_path = os.path.join(rj_dir, "Relatório de Notas Fiscais Emitidas Rio de Janeiro.pdf")
+                city_path = os.path.join(rj_dir, "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Rio de Janeiro.xlsx")
+                city_parser = RioDeJaneiroParser()
+
+            elif "volta redonda" in city_norm or "volta" in city_norm:
+                vr_dir = os.path.join(CURRENT_DIR, "Relatórios Modelo", "Volta Redonda")
+                erp_path = os.path.join(vr_dir, "Relatório de Notas Fiscais Emitidas Volta Redonda.pdf")
+                city_path = os.path.join(vr_dir, "08965795000265 NFS-E EMITIDAS - 30_07_2026.xls")
+                city_parser = VoltaRedondaParser()
+
+            elif "joão pessoa" in city_norm or "joao pessoa" in city_norm:
+                jp_dir = os.path.join(CURRENT_DIR, "Relatórios Modelo", "João Pessoa")
+                erp_path = os.path.join(jp_dir, "Relatório de Notas Fiscais Emitidas João Pessoa.pdf")
+                city_path = os.path.join(jp_dir, "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 João Pessoa.xlsx")
+                city_parser = JoaoPessoaParser()
+
+            elif "fortaleza" in city_norm:
+                for_dir = os.path.join(CURRENT_DIR, "Relatórios Modelo", "Fortaleza")
+                erp_path = os.path.join(for_dir, "Relatório de Notas Fiscais Emitidas Fortaleza.pdf")
+                city_path = os.path.join(for_dir, "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Fortaleza.xlsx")
+                city_parser = FortalezaParser()
+
+            elif "são luis" in city_norm or "sao luis" in city_norm or "são luís" in city_norm or "sao luís" in city_norm:
+                sl_dir = os.path.join(CURRENT_DIR, "Relatórios Modelo", "São Luis")
+                erp_path = os.path.join(sl_dir, "Relatório de Notas Fiscais Emitidas São Luis.pdf")
+                city_path = os.path.join(sl_dir, "Prefeitura_São_Luis_relatorioServicosPrestados_062026.pdf")
+                city_parser = SaoLuisParser()
+
+            elif "belém" in city_norm or "belem" in city_norm:
+                bel_dir = os.path.join(CURRENT_DIR, "Relatórios Modelo", "Belém")
+                erp_path = os.path.join(bel_dir, "Relatório de Notas Fiscais Emitidas Belém.pdf")
+                city_path = os.path.join(bel_dir, "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Belém.xlsx")
+                city_parser = BelemParser()
+
+            elif "curitiba" in city_norm:
+                cur_dir = os.path.join(CURRENT_DIR, "Relatórios Modelo", "Curitiba")
+                erp_path = os.path.join(cur_dir, "Relatório de Notas Fiscais Emitidas Curitiba.pdf")
+                city_path = os.path.join(cur_dir, "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Curitiba.xlsx")
+                city_parser = CuritibaParser()
+
+            elif "uberlândia" in city_norm or "uberlandia" in city_norm:
+                udi_dir = os.path.join(CURRENT_DIR, "Relatórios Modelo", "Uberlândia")
+                erp_path = os.path.join(udi_dir, "Relatório de Notas Fiscais Emitidas Uberlândia.pdf")
+                city_path = os.path.join(udi_dir, "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Uberlândia.xlsx")
+                city_parser = UberlandiaParser()
+
+            elif "salvador" in city_norm:
+                ssa_dir = os.path.join(CURRENT_DIR, "Relatórios Modelo", "Salvador")
+                erp_path = os.path.join(ssa_dir, "Relatório de Notas Fiscais Emitidas Salvador.pdf")
+                city_path = os.path.join(ssa_dir, "NFSe_E_27112200186_20260601_20260630.csv")
+                city_parser = SalvadorParser()
+
+            elif "belo horizonte" in city_norm or "bh" in city_norm:
+                bh_dir = os.path.join(CURRENT_DIR, "Relatórios Modelo", "Belo Horizonte")
+                erp_path = os.path.join(bh_dir, "Relatório de Notas Fiscais Emitidas Belo Horizonte.pdf")
+                city_path = os.path.join(bh_dir, "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Belo Horizonte.xlsx")
+                city_parser = BeloHorizonteParser()
+
+            elif "goiânia" in city_norm or "goiania" in city_norm:
+                gyn_dir = os.path.join(CURRENT_DIR, "Relatórios Modelo", "Goiânia")
+                erp_path = os.path.join(gyn_dir, "Relatório de Notas Fiscais Emitidas Goiânia.pdf")
+                city_path = os.path.join(gyn_dir, "Relatorio de Notas Fiscais Prefeitura de Goiânia 062026.csv")
+                city_parser = GoianiaParser()
+
+            elif "aracaju" in city_norm:
+                aju_dir = os.path.join(CURRENT_DIR, "Relatórios Modelo", "Aracaju")
+                erp_path = os.path.join(aju_dir, "Relatório de Notas Fiscais Emitidas Aracaju.pdf")
+                city_path = os.path.join(aju_dir, "NFS-e Emitidas - BAHIA HOME CARE SERVICOS MEDICOS DOMICILIARES LTDA - 07.766.008_0005-36_Aracaju.csv")
+                city_parser = AracajuParser()
+
+            else:
+                erp_path = os.path.join(CURRENT_DIR, "NFe_E_V3_06199364_20260601_20260630.csv")
+                city_path = os.path.join(CURRENT_DIR, "Relatório de Notas Fiscais Emitidas Recife - MODELO.pdf")
+                city_parser = RecifeParser()
+
+            if not os.path.exists(erp_path) or not os.path.exists(city_path):
+                self.send_json_response({"success": False, "error": f"Arquivos de modelo para {city} não foram localizados."})
+                return
+
+            erp_parser = ERPParser()
+            engine = ReconciliationEngine(tolerance=0.04)
+
+            erp_items = erp_parser.parse_file(erp_path)
+            city_items = city_parser.parse(city_path)
+
+            result = engine.reconcile(erp_items, city_items)
+            self.send_json_response({"success": True, "result": result})
+
+        except Exception as e:
+            self.send_json_response({"success": False, "error": f"Erro no processamento da demonstração: {str(e)}"})
+
+    def handle_upload_reconcile(self):
+        try:
+            content_type = self.headers.get('content-type', '')
+            if 'multipart/form-data' not in content_type:
+                self.send_json_response({"success": False, "error": "Formato de envio inválido."})
+                return
+
+            boundary_str = None
+            for part in content_type.split(';'):
+                part = part.strip()
+                if part.startswith('boundary='):
+                    boundary_str = part.split('=', 1)[1].strip('"\'')
+
+            if not boundary_str:
+                self.send_json_response({"success": False, "error": "Boundary do formulário não encontrado."})
+                return
+
+            content_length = int(self.headers.get('content-length', 0))
+            body_bytes = self.rfile.read(content_length)
+
+            fields = parse_multipart_data(body_bytes, boundary_str.encode('utf-8'))
+
+            file1_bytes = fields.get('erp_file')
+            file2_bytes = fields.get('city_file')
+            city_param = fields.get('city', b'Recife').decode('utf-8', errors='replace')
+            city_norm = city_param.lower()
+
+            if not file1_bytes or not file2_bytes:
+                self.send_json_response({"success": False, "error": "Ambos os arquivos devem ser selecionados."})
+                return
+
+            erp_parser = ERPParser()
+            
+            if "são paulo" in city_norm or "sao paulo" in city_norm:
+                city_parser = SaoPauloParser()
+            elif "jose" in city_norm or "josé" in city_norm:
+                city_parser = SaoJoseDosCamposParser()
+            elif "santos" in city_norm:
+                city_parser = SantosParser()
+            elif "campinas" in city_norm:
+                city_parser = CampinasParser()
+            elif "brasilia" in city_norm or "brasília" in city_norm:
+                city_parser = BrasiliaParser()
+            elif "rio de janeiro" in city_norm or "rio" in city_norm:
+                city_parser = RioDeJaneiroParser()
+            elif "volta redonda" in city_norm or "volta" in city_norm:
+                city_parser = VoltaRedondaParser()
+            elif "joão pessoa" in city_norm or "joao pessoa" in city_norm:
+                city_parser = JoaoPessoaParser()
+            elif "fortaleza" in city_norm:
+                city_parser = FortalezaParser()
+            elif "são luis" in city_norm or "sao luis" in city_norm or "são luís" in city_norm or "sao luís" in city_norm:
+                city_parser = SaoLuisParser()
+            elif "belém" in city_norm or "belem" in city_norm:
+                city_parser = BelemParser()
+            elif "curitiba" in city_norm:
+                city_parser = CuritibaParser()
+            elif "uberlândia" in city_norm or "uberlandia" in city_norm:
+                city_parser = UberlandiaParser()
+            elif "salvador" in city_norm:
+                city_parser = SalvadorParser()
+            elif "belo horizonte" in city_norm or "bh" in city_norm:
+                city_parser = BeloHorizonteParser()
+            elif "goiânia" in city_norm or "goiania" in city_norm:
+                city_parser = GoianiaParser()
+            elif "aracaju" in city_norm:
+                city_parser = AracajuParser()
+            else:
+                city_parser = RecifeParser()
+
+            # Tentativa 1: Ordem Direta
+            erp_items = erp_parser.parse_file(file1_bytes)
+            city_items = city_parser.parse(file2_bytes)
+
+            # Tentativa 2: Inversão de Arquivos caso um leitor retorne vazio
+            if not erp_items or not city_items:
+                alt_erp = erp_parser.parse_file(file2_bytes)
+                alt_city = city_parser.parse(file1_bytes)
+
+                if (alt_erp and alt_city) or (len(alt_erp) + len(alt_city) > len(erp_items) + len(city_items)):
+                    erp_items = alt_erp
+                    city_items = alt_city
+
+            if not erp_items:
+                self.send_json_response({
+                    "success": False,
+                    "error": "Não foi possível identificar os dados do ERP. Verifique se o relatório contendo a 'Base de Cálculo' foi selecionado."
+                })
+                return
+
+            if not city_items:
+                self.send_json_response({
+                    "success": False,
+                    "error": f"Não foi possível extrair notas do relatório da Prefeitura de {city_param}. Verifique se o arquivo em PDF/CSV/XLSX/XLS foi anexado."
+                })
+                return
+
+            engine = ReconciliationEngine(tolerance=0.04)
+            result = engine.reconcile(erp_items, city_items)
+            self.send_json_response({"success": True, "result": result})
+
+        except Exception as e:
+            self.send_json_response({"success": False, "error": f"Erro no processamento: {str(e)}"})
+
+    def send_json_response(self, data: Dict[str, Any], status_code: int = 200):
+        body = json.dumps(data, ensure_ascii=False).encode('utf-8')
+        self.send_response(status_code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+def run_server():
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(("", PORT), ReconciliationHandler) as httpd:
+        print("============================================================")
+        print(" Servidor de Conferencia Fiscal iniciado com sucesso!")
+        print(f" Acesse no seu navegador: http://localhost:{PORT}")
+        print("============================================================")
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            print("\nServidor finalizado.")
+
+if __name__ == "__main__":
+    run_server()
