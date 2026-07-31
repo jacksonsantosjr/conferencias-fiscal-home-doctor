@@ -226,33 +226,68 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                     if not fname.endswith('/'):
                         city_folders[cfolder].append(fname)
 
-            for cfolder, fpaths in city_folders.items():
-                if not fpaths: continue
+            # Processamento Inteligente para as 18 Prefeituras
+            for cfg in ALL_CITIES_CONFIG:
+                cname = cfg["name"]
+                cfolder = cfg["folder"]
+                c_parser_cls = cfg["parser"]
 
-                # Identifica a cidade correspondente
-                cfg_match = None
-                cfolder_lower = cfolder.lower()
-                for cfg in ALL_CITIES_CONFIG:
-                    if cfg["folder"].lower() == cfolder_lower or cfg["name"].lower() == cfolder_lower:
-                        cfg_match = cfg
+                matching_fpaths = None
+                for folder_in_zip, fpaths in city_folders.items():
+                    if folder_in_zip.lower() == cfolder.lower() or folder_in_zip.lower() == cname.lower():
+                        matching_fpaths = fpaths
                         break
 
-                if not cfg_match:
+                if not matching_fpaths:
                     continue
-
-                cname = cfg_match["name"]
-                c_parser_cls = cfg_match["parser"]
 
                 file1_bytes = None
                 file2_bytes = None
 
-                for fp in fpaths:
-                    bcontent = zf.read(fp)
-                    if not file1_bytes:
-                        file1_bytes = bcontent
-                    else:
-                        file2_bytes = bcontent
-                        break
+                if len(matching_fpaths) == 1:
+                    # Caso haja 1 único arquivo no ZIP para essa cidade (ex: Recife)
+                    single_fp = matching_fpaths[0]
+                    single_bytes = zf.read(single_fp)
+                    items_as_erp = erp_parser.parse_file(single_bytes)
+
+                    local_dir = os.path.join(CURRENT_DIR, 'Relatórios Modelo', cfolder)
+                    local_erp_p = os.path.join(local_dir, cfg['erp'])
+                    local_city_p = os.path.join(local_dir, cfg['city_file'])
+
+                    if len(items_as_erp) > 0 and os.path.exists(local_city_p):
+                        file1_bytes = single_bytes
+                        with open(local_city_p, 'rb') as f: file2_bytes = f.read()
+                    elif os.path.exists(local_erp_p):
+                        with open(local_erp_p, 'rb') as f: file1_bytes = f.read()
+                        file2_bytes = single_bytes
+                else:
+                    # Pareamento inteligente por nome de arquivo ou assinatura
+                    candidates = []
+                    for fp in matching_fpaths:
+                        bcontent = zf.read(fp)
+                        candidates.append((fp, bcontent))
+
+                    selected_erp_bytes = None
+                    selected_city_bytes = None
+
+                    # Mapeia candidatos com base na assinatura
+                    for fp, bcontent in candidates:
+                        fp_base = os.path.basename(fp).lower()
+                        if 'modelo' in fp_base or 'emitidas' in fp_base or 'nfe' in fp_base or 'nota fiscal' in fp_base:
+                            e_items = erp_parser.parse_file(bcontent)
+                            if len(e_items) > 0 and not selected_erp_bytes:
+                                selected_erp_bytes = bcontent
+
+                        c_items = c_parser_cls().parse(bcontent)
+                        if len(c_items) > 0 and not selected_city_bytes:
+                            selected_city_bytes = bcontent
+
+                    if not selected_erp_bytes or not selected_city_bytes:
+                        selected_erp_bytes = candidates[0][1]
+                        selected_city_bytes = candidates[1][1]
+
+                    file1_bytes = selected_erp_bytes
+                    file2_bytes = selected_city_bytes
 
                 if not file1_bytes or not file2_bytes:
                     continue

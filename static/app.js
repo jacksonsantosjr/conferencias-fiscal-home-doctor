@@ -261,10 +261,25 @@ document.addEventListener('DOMContentLoaded', () => {
   // Renderiza Painel Consolidado de Lote
   function renderBatchSummary(batchData) {
     const gSum = batchData.global_summary || {};
+    const totalProcessed = gSum.total_cities || 0;
+    const matchedCount = gSum.matched_cities || 0;
+    const divCount = gSum.divergent_cities || 0;
+
     document.getElementById('batchTotalAudited').textContent = formatCurrency(gSum.total_erp_valor || 0);
-    document.getElementById('batchTotalSub').textContent = `${gSum.total_cities || 18} de 18 prefeituras auditadas`;
-    document.getElementById('batchMatchedCount').textContent = gSum.matched_cities || 0;
-    document.getElementById('batchDivergentCount').textContent = gSum.divergent_cities || 0;
+    document.getElementById('batchTotalSub').textContent = `${totalProcessed} de 18 prefeituras auditadas`;
+    
+    document.getElementById('batchMatchedCount').textContent = matchedCount;
+    const matchedSub = document.querySelector('#batchModal .stat-card.conciliados .stat-sub');
+    if (matchedSub) {
+      matchedSub.textContent = `${matchedCount} de ${totalProcessed} sem divergências`;
+    }
+
+    document.getElementById('batchDivergentCount').textContent = divCount;
+    const divSub = document.querySelector('#batchModal .stat-card.divergentes .stat-sub');
+    if (divSub) {
+      divSub.textContent = divCount > 0 ? `${divCount} prefeitura(s) com atenção` : 'Nenhuma divergência';
+    }
+
     document.getElementById('batchAccuracy').textContent = `${gSum.accuracy || 100}%`;
 
     batchTableBody.innerHTML = '';

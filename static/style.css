@@ -777,7 +777,18 @@ body {
 }
 
 .modal-large {
-  max-width: 920px !important;
+  width: 94vw !important;
+  max-width: 1240px !important;
+  padding: 32px 36px;
+}
+
+#batchSummaryPanel .table-wrapper {
+  overflow-x: hidden;
+}
+
+#batchSummaryPanel .data-table th,
+#batchSummaryPanel .data-table td {
+  padding: 12px 14px;
 }
 
 .modal-header {
