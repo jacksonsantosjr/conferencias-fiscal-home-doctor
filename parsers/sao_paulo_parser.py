@@ -105,6 +105,11 @@ class SaoPauloParser(BaseCityParser):
             for idx_row, row in enumerate(reader):
                 if not row or len(row) <= (idx_valor or 0): continue
 
+                # Ignora linha de Total/Rodapé consolidado
+                first_cell = row[0].strip().lower() if len(row) > 0 else ""
+                if first_cell.startswith('total') or first_cell.startswith('soma'):
+                    continue
+
                 # Filtro de Situação 'T' (Tributada) caso exista a coluna
                 if idx_situacao is not None and idx_situacao < len(row):
                     sit = row[idx_situacao].strip().upper()

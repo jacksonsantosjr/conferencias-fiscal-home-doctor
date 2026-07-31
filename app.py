@@ -462,8 +462,16 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                 city_parser = AracajuParser()
 
             else:
-                erp_path = os.path.join(CURRENT_DIR, "NFe_E_V3_06199364_20260601_20260630.csv")
-                city_path = os.path.join(CURRENT_DIR, "Relatório de Notas Fiscais Emitidas Recife - MODELO.pdf")
+                rec_dir = os.path.join(CURRENT_DIR, "Relatórios Modelo", "Recife")
+                erp_path = os.path.join(rec_dir, "NFe_E_V3_06199364_20260601_20260630.csv")
+                if not os.path.exists(erp_path):
+                    erp_path = os.path.join(CURRENT_DIR, "NFe_E_V3_06199364_20260601_20260630.csv")
+
+                city_path = os.path.join(rec_dir, "Relatório de Notas Fiscais Emitidas Recife.pdf")
+                if not os.path.exists(city_path):
+                    city_path = os.path.join(rec_dir, "Relatório de Notas Fiscais Emitidas Recife - MODELO.pdf")
+                if not os.path.exists(city_path):
+                    city_path = os.path.join(CURRENT_DIR, "Relatório de Notas Fiscais Emitidas Recife - MODELO.pdf")
                 city_parser = RecifeParser()
 
             if not os.path.exists(erp_path) or not os.path.exists(city_path):

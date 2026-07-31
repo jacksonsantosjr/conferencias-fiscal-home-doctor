@@ -492,10 +492,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let stepIdx = 0;
     activeProgressTimer = setInterval(() => {
-      if (currentPercentValue < 92) {
-        // Incrementa suavemente reduzindo a velocidade conforme se aproxima dos 90%
-        const increment = Math.max(0.4, (92 - currentPercentValue) * 0.08);
-        currentPercentValue += increment;
+      if (currentPercentValue < 98) {
+        let increment = 0.5;
+        if (currentPercentValue < 40) {
+          increment = 1.2;
+        } else if (currentPercentValue < 70) {
+          increment = 0.8;
+        } else if (currentPercentValue < 88) {
+          increment = 0.4;
+        } else {
+          increment = 0.15;
+        }
+
+        currentPercentValue = Math.min(98, currentPercentValue + increment);
         const displayVal = Math.floor(currentPercentValue);
 
         progressBarFill.style.width = `${displayVal}%`;
