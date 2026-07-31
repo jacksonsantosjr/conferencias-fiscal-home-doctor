@@ -500,22 +500,19 @@ document.addEventListener('DOMContentLoaded', () => {
     activeProgressTimer = setInterval(() => {
       const elapsedSec = (performance.now() - startTime) / 1000;
       
-      // Progressão suave e perfeitamente cadenciada proporcional ao tempo real de execução:
-      // Evolui constantemente a cada segundo sem dar saltos abruptos ou parar em 99%
+      // Progressão suave e perfeitamente sincronizada com o backend de 16 segundos:
       let target = 0;
-      if (elapsedSec <= 15) {
-        target = (elapsedSec / 15) * 20; // 0% a 20% nos primeiros 15s
-      } else if (elapsedSec <= 45) {
-        target = 20 + ((elapsedSec - 15) / 30) * 35; // 20% a 55% entre 15s e 45s
-      } else if (elapsedSec <= 85) {
-        target = 55 + ((elapsedSec - 45) / 40) * 33; // 55% a 88% entre 45s e 85s
-      } else if (elapsedSec <= 120) {
-        target = 88 + ((elapsedSec - 85) / 35) * 9; // 88% a 97% até 2 minutos
+      if (elapsedSec <= 3) {
+        target = (elapsedSec / 3) * 30; // 0% a 30% nos primeiros 3s
+      } else if (elapsedSec <= 10) {
+        target = 30 + ((elapsedSec - 3) / 7) * 45; // 30% a 75% entre 3s e 10s
+      } else if (elapsedSec <= 20) {
+        target = 75 + ((elapsedSec - 10) / 10) * 20; // 75% a 95% até 20s
       } else {
-        target = 97 + Math.min(2.5, (elapsedSec - 120) * 0.02); // >2min: 97.1%, 97.2%... avanço constante
+        target = 95 + Math.min(3.8, (elapsedSec - 20) * 0.1); // >20s: avanço continuo
       }
 
-      currentPercentValue = Math.min(99.2, Math.max(currentPercentValue + 0.05, target));
+      currentPercentValue = Math.min(99.2, Math.max(currentPercentValue + 0.15, target));
 
       const displayVal = Math.floor(currentPercentValue);
       progressBarFill.style.width = `${currentPercentValue.toFixed(1)}%`;
@@ -531,7 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
         stepIdx = 3;
         progressStepText.textContent = stepsList[3];
       }
-    }, 100);
+    }, 60);
   }
 
   function finishSmoothProgress() {

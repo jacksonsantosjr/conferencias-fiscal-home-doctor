@@ -262,18 +262,26 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                         fA_bytes = candidates[0][1]
                         fB_bytes = candidates[1][1]
 
-                        e1 = erp_parser.parse_file(fA_bytes)
-                        c1 = c_parser_cls().parse(fB_bytes)
-                        score1 = len(e1) + len(c1)
+                        fA_name = os.path.basename(candidates[0][0]).lower()
+                        fB_name = os.path.basename(candidates[1][0]).lower()
 
-                        e2 = erp_parser.parse_file(fB_bytes)
-                        c2 = c_parser_cls().parse(fA_bytes)
-                        score2 = len(e2) + len(c2)
-
-                        if score1 >= score2:
+                        if ('nfe_e' in fA_name or 'nota fiscal.csv' in fA_name or 'relatório de notas fiscais emitidas' in fA_name) and not ('nfe_e' in fB_name or 'nota fiscal.csv' in fB_name or 'relatório de notas fiscais emitidas' in fB_name):
                             file1_bytes, file2_bytes = fA_bytes, fB_bytes
-                        else:
+                        elif ('nfe_e' in fB_name or 'nota fiscal.csv' in fB_name or 'relatório de notas fiscais emitidas' in fB_name) and not ('nfe_e' in fA_name or 'nota fiscal.csv' in fA_name or 'relatório de notas fiscais emitidas' in fA_name):
                             file1_bytes, file2_bytes = fB_bytes, fA_bytes
+                        else:
+                            e1 = erp_parser.parse_file(fA_bytes)
+                            c1 = c_parser_cls().parse(fB_bytes)
+                            score1 = len(e1) + len(c1)
+
+                            e2 = erp_parser.parse_file(fB_bytes)
+                            c2 = c_parser_cls().parse(fA_bytes)
+                            score2 = len(e2) + len(c2)
+
+                            if score1 >= score2:
+                                file1_bytes, file2_bytes = fA_bytes, fB_bytes
+                            else:
+                                file1_bytes, file2_bytes = fB_bytes, fA_bytes
                     elif len(candidates) == 1:
                         file1_bytes = candidates[0][1]
                         file2_bytes = candidates[0][1]
