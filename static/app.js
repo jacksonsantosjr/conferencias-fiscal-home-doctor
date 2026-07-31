@@ -307,16 +307,17 @@ document.addEventListener('DOMContentLoaded', () => {
           </span>
         </td>
         <td>
-          <button type="button" class="btn-export btn-view-city-detail" data-city="${cResult.city}">
-            👁️ Detalhes
-          </button>
+          ${isDiv 
+            ? `<button type="button" class="btn-export btn-view-city-detail" data-city="${cResult.city}">👁️ Detalhes</button>`
+            : `<button type="button" class="btn-export" disabled style="opacity: 0.4; cursor: not-allowed; pointer-events: none;">👁️ Detalhes</button>`
+          }
         </td>
       `;
 
       batchTableBody.appendChild(tr);
     });
 
-    // Handler para os Botões "👁️ Detalhes" no Modal Sobreposto (Modal 3)
+    // Handler para os Botões "👁️ Detalhes" ativos (somente cidades com divergência)
     document.querySelectorAll('.btn-view-city-detail').forEach(btn => {
       btn.addEventListener('click', () => {
         const cityName = btn.getAttribute('data-city');
@@ -331,13 +332,16 @@ document.addEventListener('DOMContentLoaded', () => {
     batchSummaryPanel.style.display = 'block';
   }
 
-  // Abre Modal 3 (Sobreposto) para Detalhes da Cidade
+  // Abre Modal 3 (Sobreposto) para Detalhes das Divergências da Cidade
   function openCityDetailModal(cData) {
-    detailCityTitle.textContent = `📍 Auditoria Detalhada — ${cData.city}`;
-    detailCitySub.textContent = `Resumo: ${cData.resumo.total_erp_qtd} notas no ERP | Total: ${formatCurrency(cData.resumo.total_erp_valor)}`;
+    detailCityTitle.textContent = `📍 Divergências Encontradas — ${cData.city}`;
+    const divItems = (cData.items || []).filter(item => item.status !== 'CONCILIADO');
+    const displayItems = divItems.length > 0 ? divItems : (cData.items || []);
+
+    detailCitySub.textContent = `Exibindo ${displayItems.length} nota(s) com divergência | ERP: ${formatCurrency(cData.resumo.total_erp_valor)} vs Prefeitura: ${formatCurrency(cData.resumo.total_prefeitura_valor)}`;
     detailCityTableBody.innerHTML = '';
 
-    (cData.items || []).forEach((item) => {
+    displayItems.forEach((item) => {
       const tr = document.createElement('tr');
       let statusBadge = '';
       if (item.status === 'CONCILIADO') {
@@ -357,7 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${item.tomador || '-'}</td>
         <td>${formatCurrency(item.valor_erp || 0)}</td>
         <td>${formatCurrency(item.valor_prefeitura || 0)}</td>
-        <td style="color: ${item.diferenca > 0.04 ? 'var(--status-danger-text)' : 'var(--text-muted)'}">
+        <td style="color: ${item.diferenca > 0.04 ? 'var(--status-danger-text)' : 'var(--text-muted)'}; font-weight: 600;">
           ${formatCurrency(item.diferenca || 0)}
         </td>
         <td><small style="color: var(--text-muted);">${item.diagnostico || '-'}</small></td>
@@ -490,38 +494,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (activeProgressTimer) clearInterval(activeProgressTimer);
 
+    const startTime = performance.now();
     let stepIdx = 0;
+
     activeProgressTimer = setInterval(() => {
-      if (currentPercentValue < 98) {
-        let increment = 0.5;
-        if (currentPercentValue < 40) {
-          increment = 1.2;
-        } else if (currentPercentValue < 70) {
-          increment = 0.8;
-        } else if (currentPercentValue < 88) {
-          increment = 0.4;
-        } else {
-          increment = 0.15;
-        }
+      const elapsedSec = (performance.now() - startTime) / 1000;
+      // Animação assintótica contínua: avança em tempo real sem travar em números fixos
+      const targetPercent = 99 * (1 - Math.exp(-elapsedSec / 12));
+      currentPercentValue = Math.min(98.8, Math.max(currentPercentValue + 0.05, targetPercent));
 
-        currentPercentValue = Math.min(98, currentPercentValue + increment);
-        const displayVal = Math.floor(currentPercentValue);
+      const displayVal = Math.floor(currentPercentValue);
+      progressBarFill.style.width = `${currentPercentValue.toFixed(1)}%`;
+      progressPercentText.textContent = `${displayVal}%`;
 
-        progressBarFill.style.width = `${displayVal}%`;
-        progressPercentText.textContent = `${displayVal}%`;
-
-        if (displayVal > 25 && stepIdx === 0 && stepsList[1]) {
-          stepIdx = 1;
-          progressStepText.textContent = stepsList[1];
-        } else if (displayVal > 55 && stepIdx === 1 && stepsList[2]) {
-          stepIdx = 2;
-          progressStepText.textContent = stepsList[2];
-        } else if (displayVal > 80 && stepIdx === 2 && stepsList[3]) {
-          stepIdx = 3;
-          progressStepText.textContent = stepsList[3];
-        }
+      if (displayVal >= 25 && stepIdx === 0 && stepsList[1]) {
+        stepIdx = 1;
+        progressStepText.textContent = stepsList[1];
+      } else if (displayVal >= 55 && stepIdx === 1 && stepsList[2]) {
+        stepIdx = 2;
+        progressStepText.textContent = stepsList[2];
+      } else if (displayVal >= 80 && stepIdx === 2 && stepsList[3]) {
+        stepIdx = 3;
+        progressStepText.textContent = stepsList[3];
       }
-    }, 100);
+    }, 80);
   }
 
   function finishSmoothProgress() {

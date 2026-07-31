@@ -791,6 +791,25 @@ body {
   padding: 12px 14px;
 }
 
+#cityDetailModal .modal-large {
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#cityDetailModal .table-wrapper {
+  flex: 1;
+  max-height: calc(85vh - 120px);
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+#cityDetailModal .data-table th,
+#cityDetailModal .data-table td {
+  padding: 12px 14px;
+}
+
 .modal-header {
   display: flex;
   align-items: center;
