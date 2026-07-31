@@ -1,6 +1,6 @@
 """
 Servidor Web de Conferência Fiscal do Faturamento (Python Standard Library HTTP Server).
-Suporta Prefeituras de Recife, SP, SJC, Santos, Campinas, Brasília, RJ, Volta Redonda, João Pessoa, Fortaleza, São Luís, Belém, Curitiba, Uberlândia, Salvador, Belo Horizonte, Goiânia e Aracaju com roteamento de parsers dinâmicos.
+Suporta Prefeituras de Recife, SP, SJC, Santos, Campinas, Brasília, RJ, VR, JP, Fortaleza, São Luís, Belém, Curitiba, Uberlândia, Salvador, Belo Horizonte, Goiânia e Aracaju com conciliação individual e em lote (todas as prefeituras de uma vez).
 """
 
 import http.server
@@ -8,7 +8,9 @@ import socketserver
 import json
 import os
 import sys
-from typing import Dict, Any
+import io
+import zipfile
+from typing import Dict, Any, List
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 if CURRENT_DIR not in sys.path:
@@ -42,6 +44,27 @@ from parsers.aracaju_parser import AracajuParser
 from engine.reconciler import ReconciliationEngine
 
 PORT = 8000
+
+ALL_CITIES_CONFIG = [
+    {"name": "Recife", "folder": "Recife", "erp": "Relatório de Notas Fiscais Emitidas Recife - MODELO.pdf", "city_file": "Relatório de Notas Fiscais Emitidas Recife - MODELO.pdf", "parser": RecifeParser},
+    {"name": "São Paulo", "folder": "São Paulo", "erp": "NFSe_E_24851175_20260601_20260630.csv", "city_file": "Relatório de Notas Fiscais Emitidas São Paulo.pdf", "parser": SaoPauloParser},
+    {"name": "São José dos Campos", "folder": "São Jose dos Campos", "erp": "Nota Fiscal.csv", "city_file": "Relatório de Notas Fiscais Emitidas São José dos Campos.pdf", "parser": SaoJoseDosCamposParser},
+    {"name": "Santos", "folder": "Santos", "erp": "Relatório de Notas Fiscais Emitidas Santos.pdf", "city_file": "consulta_xlsx_0.xlsx", "parser": SantosParser},
+    {"name": "Campinas", "folder": "Campinas", "erp": "Relatório de Notas Fiscais Emitidas Campinas.pdf", "city_file": "Nota Fiscal Prefeitura de Campinas.csv", "parser": CampinasParser},
+    {"name": "Brasília", "folder": "Brasilia", "erp": "Relatório de Notas Fiscais Emitidas Brasilia.pdf", "city_file": "Nota Fiscal Prefeitura de Brasilia.csv", "parser": BrasiliaParser},
+    {"name": "Rio de Janeiro", "folder": "Rio de Janeiro", "erp": "Relatório de Notas Fiscais Emitidas Rio de Janeiro.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Rio de Janeiro.xlsx", "parser": RioDeJaneiroParser},
+    {"name": "Volta Redonda", "folder": "Volta Redonda", "erp": "Relatório de Notas Fiscais Emitidas Volta Redonda.pdf", "city_file": "08965795000265 NFS-E EMITIDAS - 30_07_2026.xls", "parser": VoltaRedondaParser},
+    {"name": "João Pessoa", "folder": "João Pessoa", "erp": "Relatório de Notas Fiscais Emitidas João Pessoa.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 João Pessoa.xlsx", "parser": JoaoPessoaParser},
+    {"name": "Fortaleza", "folder": "Fortaleza", "erp": "Relatório de Notas Fiscais Emitidas Fortaleza.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Fortaleza.xlsx", "parser": FortalezaParser},
+    {"name": "São Luís", "folder": "São Luis", "erp": "Relatório de Notas Fiscais Emitidas São Luis.pdf", "city_file": "Prefeitura_São_Luis_relatorioServicosPrestados_062026.pdf", "parser": SaoLuisParser},
+    {"name": "Belém", "folder": "Belém", "erp": "Relatório de Notas Fiscais Emitidas Belém.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Belém.xlsx", "parser": BelemParser},
+    {"name": "Curitiba", "folder": "Curitiba", "erp": "Relatório de Notas Fiscais Emitidas Curitiba.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Curitiba.xlsx", "parser": CuritibaParser},
+    {"name": "Uberlândia", "folder": "Uberlândia", "erp": "Relatório de Notas Fiscais Emitidas Uberlândia.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Uberlândia.xlsx", "parser": UberlandiaParser},
+    {"name": "Salvador", "folder": "Salvador", "erp": "Relatório de Notas Fiscais Emitidas Salvador.pdf", "city_file": "NFSe_E_27112200186_20260601_20260630.csv", "parser": SalvadorParser},
+    {"name": "Belo Horizonte", "folder": "Belo Horizonte", "erp": "Relatório de Notas Fiscais Emitidas Belo Horizonte.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Belo Horizonte.xlsx", "parser": BeloHorizonteParser},
+    {"name": "Goiânia", "folder": "Goiânia", "erp": "Relatório de Notas Fiscais Emitidas Goiânia.pdf", "city_file": "Relatorio de Notas Fiscais Prefeitura de Goiânia 062026.csv", "parser": GoianiaParser},
+    {"name": "Aracaju", "folder": "Aracaju", "erp": "Relatório de Notas Fiscais Emitidas Aracaju.pdf", "city_file": "NFS-e Emitidas - BAHIA HOME CARE SERVICOS MEDICOS DOMICILIARES LTDA - 07.766.008_0005-36_Aracaju.csv", "parser": AracajuParser}
+]
 
 def parse_multipart_data(data: bytes, boundary: bytes) -> Dict[str, Any]:
     fields = {}
@@ -80,8 +103,212 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_demo_reconcile()
         elif self.path == "/api/reconcile":
             self.handle_upload_reconcile()
+        elif self.path == "/api/reconcile-batch-demo":
+            self.handle_batch_demo_reconcile()
+        elif self.path == "/api/reconcile-batch":
+            self.handle_batch_upload_reconcile()
         else:
             self.send_error(404, "Endpoint não encontrado")
+
+    def handle_batch_demo_reconcile(self):
+        try:
+            results_by_city = []
+            total_global_erp_val = 0.0
+            total_global_pref_val = 0.0
+            matched_cities = 0
+            divergent_cities = 0
+
+            erp_parser = ERPParser()
+            engine = ReconciliationEngine(tolerance=0.04)
+
+            for cfg in ALL_CITIES_CONFIG:
+                cname = cfg["name"]
+                cfolder = cfg["folder"]
+                c_parser_cls = cfg["parser"]
+
+                city_dir = os.path.join(CURRENT_DIR, "Relatórios Modelo", cfolder)
+                erp_p = os.path.join(city_dir, cfg["erp"])
+                city_p = os.path.join(city_dir, cfg["city_file"])
+
+                if not os.path.exists(erp_p) or not os.path.exists(city_p):
+                    continue
+
+                erp_items = erp_parser.parse_file(erp_p)
+                city_items = c_parser_cls().parse(city_p)
+                rec_res = engine.reconcile(erp_items, city_items)
+
+                resumo = rec_res.get("resumo", {})
+                is_divergent = resumo.get("divergentes_qtd", 0) > 0 or resumo.get("somente_erp_qtd", 0) > 0 or resumo.get("somente_prefeitura_qtd", 0) > 0
+
+                if is_divergent:
+                    divergent_cities += 1
+                else:
+                    matched_cities += 1
+
+                total_global_erp_val += resumo.get("total_erp_valor", 0.0)
+                total_global_pref_val += resumo.get("total_prefeitura_valor", 0.0)
+
+                results_by_city.append({
+                    "city": cname,
+                    "resumo": resumo,
+                    "items": rec_res.get("items", []),
+                    "status": "DIVERGENTE" if is_divergent else "CONCILIADO"
+                })
+
+            total_cities = len(results_by_city)
+            accuracy = (matched_cities / total_cities * 100) if total_cities > 0 else 100.0
+
+            global_summary = {
+                "total_cities": total_cities,
+                "matched_cities": matched_cities,
+                "divergent_cities": divergent_cities,
+                "total_erp_valor": round(total_global_erp_val, 2),
+                "total_prefeitura_valor": round(total_global_pref_val, 2),
+                "accuracy": round(accuracy, 1)
+            }
+
+            self.send_json_response({
+                "success": True,
+                "global_summary": global_summary,
+                "cities_results": results_by_city
+            })
+
+        except Exception as e:
+            self.send_json_response({"success": False, "error": f"Erro ao processar lote de demonstração: {str(e)}"})
+
+    def handle_batch_upload_reconcile(self):
+        try:
+            content_type = self.headers.get('content-type', '')
+            if 'multipart/form-data' not in content_type:
+                self.send_json_response({"success": False, "error": "Formato de envio inválido."})
+                return
+
+            boundary_str = None
+            for part in content_type.split(';'):
+                part = part.strip()
+                if part.startswith('boundary='):
+                    boundary_str = part.split('=', 1)[1].strip('"\'')
+
+            if not boundary_str:
+                self.send_json_response({"success": False, "error": "Boundary do formulário não encontrado."})
+                return
+
+            content_length = int(self.headers.get('content-length', 0))
+            body_bytes = self.rfile.read(content_length)
+
+            fields = parse_multipart_data(body_bytes, boundary_str.encode('utf-8'))
+            zip_bytes = fields.get('zip_file')
+
+            if not zip_bytes:
+                self.send_json_response({"success": False, "error": "Arquivo .ZIP não foi selecionado."})
+                return
+
+            zf = zipfile.ZipFile(io.BytesIO(zip_bytes))
+            file_names = zf.namelist()
+
+            results_by_city = []
+            total_global_erp_val = 0.0
+            total_global_pref_val = 0.0
+            matched_cities = 0
+            divergent_cities = 0
+
+            erp_parser = ERPParser()
+            engine = ReconciliationEngine(tolerance=0.04)
+
+            # Agrupa arquivos por pasta de cidade dentro do ZIP
+            city_folders = {}
+            for fname in file_names:
+                parts = fname.replace('\\', '/').split('/')
+                if len(parts) >= 2:
+                    cfolder = parts[0].strip()
+                    if cfolder not in city_folders:
+                        city_folders[cfolder] = []
+                    if not fname.endswith('/'):
+                        city_folders[cfolder].append(fname)
+
+            for cfolder, fpaths in city_folders.items():
+                if not fpaths: continue
+
+                # Identifica a cidade correspondente
+                cfg_match = None
+                cfolder_lower = cfolder.lower()
+                for cfg in ALL_CITIES_CONFIG:
+                    if cfg["folder"].lower() == cfolder_lower or cfg["name"].lower() == cfolder_lower:
+                        cfg_match = cfg
+                        break
+
+                if not cfg_match:
+                    continue
+
+                cname = cfg_match["name"]
+                c_parser_cls = cfg_match["parser"]
+
+                file1_bytes = None
+                file2_bytes = None
+
+                for fp in fpaths:
+                    bcontent = zf.read(fp)
+                    if not file1_bytes:
+                        file1_bytes = bcontent
+                    else:
+                        file2_bytes = bcontent
+                        break
+
+                if not file1_bytes or not file2_bytes:
+                    continue
+
+                erp_items = erp_parser.parse_file(file1_bytes)
+                city_items = c_parser_cls().parse(file2_bytes)
+
+                if not erp_items or not city_items:
+                    alt_erp = erp_parser.parse_file(file2_bytes)
+                    alt_city = c_parser_cls().parse(file1_bytes)
+                    if (alt_erp and alt_city) or (len(alt_erp) + len(alt_city) > len(erp_items) + len(city_items)):
+                        erp_items = alt_erp
+                        city_items = alt_city
+
+                if not erp_items or not city_items:
+                    continue
+
+                rec_res = engine.reconcile(erp_items, city_items)
+                resumo = rec_res.get("resumo", {})
+                is_divergent = resumo.get("divergentes_qtd", 0) > 0 or resumo.get("somente_erp_qtd", 0) > 0 or resumo.get("somente_prefeitura_qtd", 0) > 0
+
+                if is_divergent:
+                    divergent_cities += 1
+                else:
+                    matched_cities += 1
+
+                total_global_erp_val += resumo.get("total_erp_valor", 0.0)
+                total_global_pref_val += resumo.get("total_prefeitura_valor", 0.0)
+
+                results_by_city.append({
+                    "city": cname,
+                    "resumo": resumo,
+                    "items": rec_res.get("items", []),
+                    "status": "DIVERGENTE" if is_divergent else "CONCILIADO"
+                })
+
+            total_cities = len(results_by_city)
+            accuracy = (matched_cities / total_cities * 100) if total_cities > 0 else 100.0
+
+            global_summary = {
+                "total_cities": total_cities,
+                "matched_cities": matched_cities,
+                "divergent_cities": divergent_cities,
+                "total_erp_valor": round(total_global_erp_val, 2),
+                "total_prefeitura_valor": round(total_global_pref_val, 2),
+                "accuracy": round(accuracy, 1)
+            }
+
+            self.send_json_response({
+                "success": True,
+                "global_summary": global_summary,
+                "cities_results": results_by_city
+            })
+
+        except Exception as e:
+            self.send_json_response({"success": False, "error": f"Erro ao processar arquivo .ZIP em lote: {str(e)}"})
 
     def handle_demo_reconcile(self):
         try:

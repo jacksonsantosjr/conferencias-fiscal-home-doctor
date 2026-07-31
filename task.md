@@ -13,4 +13,5 @@
 - [x] Implementação do Modo Light / Dark (Alternador de Tema com Persistência) <!-- id: 10 -->
 - [x] Implementação do Modal de Progresso Fluído com Barra de Carregamento em Tempo Real <!-- id: 11 -->
 - [x] Validação com os Arquivos de Modelo com 100% de Assertividade <!-- id: 12 -->
-- [x] Documentação de Uso e Relatório Walkthrough (`walkthrough.md`) <!-- id: 13 -->
+- [x] Versionamento Git Completo e Push realizado para `https://github.com/jacksonsantosjr/conferencias-fiscal-home-doctor` (`branch main`) <!-- id: 13 -->
+- [x] Documentação de Uso e Relatório Walkthrough (`walkthrough.md`) <!-- id: 14 -->

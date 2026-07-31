@@ -3,174 +3,323 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Conferência do Faturamento Fiscal - ERP vs Prefeituras</title>
+  <title>Conferência do Faturamento Fiscal - Home Doctor</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
-  <!-- Cabeçalho com Botão de Tema Light/Dark -->
-  <header class="app-header">
-    <div class="brand">
-      <div class="brand-icon">⚡</div>
-      <div class="brand-text">
-        <h1>Conferência de Faturamento Fiscal</h1>
-        <p>Automação e Auditoria de Notas Fiscais Emitidas</p>
-      </div>
-    </div>
+  <div class="app-layout">
 
-    <div class="header-actions">
-      <!-- Seletor de Tema Light / Dark -->
-      <button type="button" class="btn-theme-toggle" id="btnThemeToggle" title="Alternar entre modo Claro e Escuro">
-        <span class="theme-icon" id="themeIcon">🌙</span>
-        <span class="theme-label" id="themeLabel">Modo Escuro</span>
+    <!-- Sidebar Retrátil (Fiel ao CND Automation System) -->
+    <aside class="sidebar" id="sidebar">
+      <!-- Botão Divisor Flutuante Circular na Borda Vertical -->
+      <button type="button" class="sidebar-toggle-btn" id="sidebarToggle" title="Expandir/Colapsar Menu">
+        <span class="toggle-arrow" id="toggleArrow">‹</span>
       </button>
 
-      <div class="city-badge-select">
-        <label for="citySelect" style="font-size: 13px; color: var(--text-muted);">Prefeitura Alvo:</label>
-        <select id="citySelect" class="city-select">
-          <option value="Recife" selected>📍 Recife (Ativo)</option>
-          <option value="São Paulo">📍 São Paulo (Ativo)</option>
-          <option value="São Jose dos Campos">📍 São José dos Campos (Ativo)</option>
-          <option value="Santos">📍 Santos (Ativo)</option>
-          <option value="Campinas">📍 Campinas (Ativo)</option>
-          <option value="Brasilia">📍 Brasília (Ativo)</option>
-          <option value="Rio de Janeiro">📍 Rio de Janeiro (Ativo)</option>
-          <option value="Volta Redonda">📍 Volta Redonda (Ativo)</option>
-          <option value="João Pessoa">📍 João Pessoa (Ativo)</option>
-          <option value="Fortaleza">📍 Fortaleza (Ativo)</option>
-          <option value="São Luis">📍 São Luís (Ativo)</option>
-          <option value="Belém">📍 Belém (Ativo)</option>
-          <option value="Curitiba">📍 Curitiba (Ativo)</option>
-          <option value="Uberlândia">📍 Uberlândia (Ativo)</option>
-          <option value="Salvador">📍 Salvador (Ativo)</option>
-          <option value="Belo Horizonte">📍 Belo Horizonte (Ativo)</option>
-          <option value="Goiânia">📍 Goiânia (Ativo)</option>
-          <option value="Aracaju">📍 Aracaju (Ativo)</option>
-        </select>
-      </div>
-    </div>
-  </header>
-
-  <main class="container">
-    
-    <!-- Painel de Upload de Arquivos -->
-    <section class="glass-panel upload-section">
-      <h2>📁 Importação dos Arquivos Fiscais</h2>
-      <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
-        Selecione ou arraste os relatórios do ERP e da Prefeitura (PDF, CSV, XLSX ou XLS).
-      </p>
-
-      <div class="upload-grid">
-        <!-- Dropzone ERP -->
-        <div class="dropzone" id="dropzoneErp">
-          <div class="dropzone-icon">📊</div>
-          <h3>Relatório do ERP</h3>
-          <p>Selecione o relatório emitido pelo ERP (PDF, CSV, XLSX ou XLS)</p>
-          <div class="file-status" id="erpFileStatus">Nenhum arquivo selecionado</div>
-          <input type="file" id="erpFileInput" accept=".pdf,.csv,.xlsx,.xls,.txt">
-        </div>
-
-        <!-- Dropzone Prefeitura -->
-        <div class="dropzone" id="dropzoneCity">
-          <div class="dropzone-icon">🏛️</div>
-          <h3>Relatório da Prefeitura</h3>
-          <p>Selecione o relatório oficial da Prefeitura (PDF, CSV, XLSX ou XLS)</p>
-          <div class="file-status" id="cityFileStatus">Nenhum arquivo selecionado</div>
-          <input type="file" id="cityFileInput" accept=".pdf,.csv,.xlsx,.xls,.txt">
+      <!-- Logotipo e Título da Sidebar -->
+      <div class="sidebar-header">
+        <div class="sidebar-brand-icon">⚡</div>
+        <div class="sidebar-brand-info">
+          <span class="sidebar-brand-title">Home Doctor</span>
+          <span class="sidebar-brand-sub">Sistema Fiscal</span>
         </div>
       </div>
 
-      <div class="action-bar">
-        <div style="display: flex; gap: 10px;">
-          <button type="button" class="btn-demo" id="btnLoadDemo">
-            ⚡ Usar Arquivos de Modelo
-          </button>
-          
-          <button type="button" class="btn-reset" id="btnResetAll" title="Iniciar nova análise e resetar formulário">
-            ✨ Nova Análise
-          </button>
-        </div>
+      <!-- Links de Navegação Modular -->
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">MÓDULOS FISCAIS</div>
+        
+        <a href="#" class="nav-item active" data-module="faturamento" title="Conferência de Faturamento">
+          <span class="nav-icon">📊</span>
+          <span class="nav-text">Faturamento</span>
+        </a>
 
-        <button type="button" class="btn-primary" id="btnStartAudit">
-          <span>Realizar Conferência Fiscal</span>
+        <a href="#" class="nav-item" data-module="iss-prestados" title="ISS Serviços Prestados">
+          <span class="nav-icon">🏛️</span>
+          <span class="nav-text">ISS Serv. Prestados</span>
+        </a>
+
+        <a href="#" class="nav-item disabled" data-module="iss-tomados" title="ISS Serviços Tomados (Em breve)">
+          <span class="nav-icon">📥</span>
+          <span class="nav-text">ISS Serv. Tomados</span>
+          <span class="badge-soon">Em breve</span>
+        </a>
+
+        <a href="#" class="nav-item disabled" data-module="irrf-csrf" title="IRRF / CSRF (PCC) (Em breve)">
+          <span class="nav-icon">🛡️</span>
+          <span class="nav-text">IRRF / CSRF (PCC)</span>
+          <span class="badge-soon">Em breve</span>
+        </a>
+
+        <a href="#" class="nav-item disabled" data-module="pis-cofins" title="PIS / COFINS (Em breve)">
+          <span class="nav-icon">📈</span>
+          <span class="nav-text">PIS / COFINS</span>
+          <span class="badge-soon">Em breve</span>
+        </a>
+      </nav>
+
+      <!-- Rodapé da Sidebar (Modo Escuro / Claro) -->
+      <div class="sidebar-footer">
+        <button type="button" class="btn-theme-toggle-sidebar" id="btnThemeToggle" title="Alternar entre modo Claro e Escuro">
+          <span class="theme-icon" id="themeIcon">🌙</span>
+          <span class="theme-label" id="themeLabel">Modo Escuro</span>
         </button>
       </div>
-    </section>
+    </aside>
 
-    <!-- Dashboard Estatístico (Oculto inicialmente) -->
-    <section class="dashboard-grid" id="dashboardGrid" style="display: none;">
-      <div class="glass-panel stat-card">
-        <div class="stat-title">Total Auditado</div>
-        <div class="stat-value" id="statTotalAudited">R$ 0,00</div>
-        <div class="stat-sub" id="statTotalCount">0 notas no ERP | 0 na Prefeitura</div>
-      </div>
-
-      <div class="glass-panel stat-card conciliados">
-        <div class="stat-title">Total Conciliado</div>
-        <div class="stat-value" id="statMatchedVal" style="color: var(--status-success-text);">R$ 0,00</div>
-        <div class="stat-sub" id="statMatchedCount">0 notas coincidentes</div>
-      </div>
-
-      <div class="glass-panel stat-card divergentes">
-        <div class="stat-title">Divergências</div>
-        <div class="stat-value" id="statDivergentVal" style="color: var(--status-danger-text);">R$ 0,00</div>
-        <div class="stat-sub" id="statDivergentCount">0 notas com diferença > R$ 0,04</div>
-      </div>
-
-      <div class="glass-panel stat-card sobras">
-        <div class="stat-title">Assertividade</div>
-        <div class="stat-value" id="statAccuracy" style="color: var(--status-info-text);">0%</div>
-        <div class="stat-sub" id="statToleranceInfo">Tolerância: R$ 0,04</div>
-      </div>
-    </section>
-
-    <!-- Resultados Detalhados (Oculto inicialmente) -->
-    <section class="glass-panel results-section" id="resultsSection" style="display: none;">
-      <div class="results-header">
-        <div class="tab-group" id="tabGroup">
-          <button class="tab-btn active" data-tab="all">Todas (<span id="countAll">0</span>)</button>
-          <button class="tab-btn" data-tab="matched">🟢 Conciliadas (<span id="countMatched">0</span>)</button>
-          <button class="tab-btn" data-tab="divergent">🔴 Divergentes (<span id="countDivergent">0</span>)</button>
-          <button class="tab-btn" data-tab="erp_only">⚠️ Apenas ERP (<span id="countErpOnly">0</span>)</button>
-          <button class="tab-btn" data-tab="city_only">⚠️ Apenas Prefeitura (<span id="countCityOnly">0</span>)</button>
-        </div>
-
-        <div style="display: flex; gap: 12px; align-items: center;">
-          <input type="text" id="searchInput" class="search-box" placeholder="🔍 Buscar por nota, tomador ou valor...">
-          
-          <div class="export-group">
-            <button type="button" class="btn-export" id="btnExportExcel">📊 Excel</button>
-            <button type="button" class="btn-export" id="btnExportPdf">🖨️ Imprimir / PDF</button>
+    <!-- Conteúdo Principal da Aplicação -->
+    <div class="main-content">
+      
+      <!-- Cabeçalho Principal -->
+      <header class="app-header">
+        <div class="brand">
+          <div class="brand-text">
+            <h1 id="moduleTitle">Conferência de Faturamento Fiscal</h1>
+            <p id="moduleSub">Automação e Auditoria de Notas Fiscais Emitidas (ERP vs Prefeituras)</p>
           </div>
         </div>
+
+        <div class="header-actions">
+          <div class="city-badge-select">
+            <label for="citySelect" style="font-size: 13px; color: var(--text-muted);">Prefeitura Alvo:</label>
+            <select id="citySelect" class="city-select">
+              <option value="Recife" selected>📍 Recife (Ativo)</option>
+              <option value="São Paulo">📍 São Paulo (Ativo)</option>
+              <option value="São Jose dos Campos">📍 São José dos Campos (Ativo)</option>
+              <option value="Santos">📍 Santos (Ativo)</option>
+              <option value="Campinas">📍 Campinas (Ativo)</option>
+              <option value="Brasilia">📍 Brasília (Ativo)</option>
+              <option value="Rio de Janeiro">📍 Rio de Janeiro (Ativo)</option>
+              <option value="Volta Redonda">📍 Volta Redonda (Ativo)</option>
+              <option value="João Pessoa">📍 João Pessoa (Ativo)</option>
+              <option value="Fortaleza">📍 Fortaleza (Ativo)</option>
+              <option value="São Luis">📍 São Luís (Ativo)</option>
+              <option value="Belém">📍 Belém (Ativo)</option>
+              <option value="Curitiba">📍 Curitiba (Ativo)</option>
+              <option value="Uberlândia">📍 Uberlândia (Ativo)</option>
+              <option value="Salvador">📍 Salvador (Ativo)</option>
+              <option value="Belo Horizonte">📍 Belo Horizonte (Ativo)</option>
+              <option value="Goiânia">📍 Goiânia (Ativo)</option>
+              <option value="Aracaju">📍 Aracaju (Ativo)</option>
+            </select>
+          </div>
+        </div>
+      </header>
+
+      <main class="container">
+        
+        <!-- Painel de Upload de Arquivos -->
+        <section class="glass-panel upload-section">
+          <h2>📁 Importação dos Arquivos Fiscais</h2>
+          <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
+            Selecione os relatórios para a prefeitura selecionada ou execute a conferência em lote de todas as cidades.
+          </p>
+
+          <div class="upload-grid">
+            <!-- Dropzone ERP -->
+            <div class="dropzone" id="dropzoneErp">
+              <div class="dropzone-icon">📊</div>
+              <h3>Relatório do ERP</h3>
+              <p>Selecione o relatório emitido pelo ERP (PDF, CSV, XLSX ou XLS)</p>
+              <div class="file-status" id="erpFileStatus">Nenhum arquivo selecionado</div>
+              <input type="file" id="erpFileInput" accept=".pdf,.csv,.xlsx,.xls,.txt">
+            </div>
+
+            <!-- Dropzone Prefeitura -->
+            <div class="dropzone" id="dropzoneCity">
+              <div class="dropzone-icon">🏛️</div>
+              <h3>Relatório da Prefeitura</h3>
+              <p>Selecione o relatório oficial da Prefeitura (PDF, CSV, XLSX ou XLS)</p>
+              <div class="file-status" id="cityFileStatus">Nenhum arquivo selecionado</div>
+              <input type="file" id="cityFileInput" accept=".pdf,.csv,.xlsx,.xls,.txt">
+            </div>
+          </div>
+
+          <div class="action-bar">
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <button type="button" class="btn-demo" id="btnLoadDemo">
+                ⚡ Usar Arquivos de Modelo
+              </button>
+              
+              <button type="button" class="btn-reset" id="btnResetAll" title="Iniciar nova análise e resetar formulário">
+                ✨ Nova Análise
+              </button>
+
+              <button type="button" class="btn-batch" id="btnBatchModal" title="Abrir Painel de Conferência em Lote de Todas as Prefeituras">
+                📦 Conferência em Lote
+              </button>
+            </div>
+
+            <button type="button" class="btn-primary" id="btnStartAudit">
+              <span>Realizar Conferência Fiscal</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Dashboard Estatístico (Oculto inicialmente) -->
+        <section class="dashboard-grid" id="dashboardGrid" style="display: none;">
+          <div class="glass-panel stat-card">
+            <div class="stat-title">Total Auditado</div>
+            <div class="stat-value" id="statTotalAudited">R$ 0,00</div>
+            <div class="stat-sub" id="statTotalCount">0 notas no ERP | 0 na Prefeitura</div>
+          </div>
+
+          <div class="glass-panel stat-card conciliados">
+            <div class="stat-title">Total Conciliado</div>
+            <div class="stat-value" id="statMatchedVal" style="color: var(--status-success-text);">R$ 0,00</div>
+            <div class="stat-sub" id="statMatchedCount">0 notas coincidentes</div>
+          </div>
+
+          <div class="glass-panel stat-card divergentes">
+            <div class="stat-title">Divergências</div>
+            <div class="stat-value" id="statDivergentVal" style="color: var(--status-danger-text);">R$ 0,00</div>
+            <div class="stat-sub" id="statDivergentCount">0 notas com diferença > R$ 0,04</div>
+          </div>
+
+          <div class="glass-panel stat-card sobras">
+            <div class="stat-title">Assertividade</div>
+            <div class="stat-value" id="statAccuracy" style="color: var(--status-info-text);">0%</div>
+            <div class="stat-sub" id="statToleranceInfo">Tolerância: R$ 0,04</div>
+          </div>
+        </section>
+
+        <!-- Resultados Detalhados (Oculto inicialmente) -->
+        <section class="glass-panel results-section" id="resultsSection" style="display: none;">
+          <div class="results-header">
+            <div class="tab-group" id="tabGroup">
+              <button class="tab-btn active" data-tab="all">Todas (<span id="countAll">0</span>)</button>
+              <button class="tab-btn" data-tab="matched">🟢 Conciliadas (<span id="countMatched">0</span>)</button>
+              <button class="tab-btn" data-tab="divergent">🔴 Divergentes (<span id="countDivergent">0</span>)</button>
+              <button class="tab-btn" data-tab="erp_only">⚠️ Apenas ERP (<span id="countErpOnly">0</span>)</button>
+              <button class="tab-btn" data-tab="city_only">⚠️ Apenas Prefeitura (<span id="countCityOnly">0</span>)</button>
+            </div>
+
+            <div style="display: flex; gap: 12px; align-items: center;">
+              <input type="text" id="searchInput" class="search-box" placeholder="🔍 Buscar por nota, tomador ou valor...">
+              
+              <div class="export-group">
+                <button type="button" class="btn-export" id="btnExportExcel">📊 Excel</button>
+                <button type="button" class="btn-export" id="btnExportPdf">🖨️ Imprimir / PDF</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabela -->
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Ref. ERP (RPS/Nota)</th>
+                  <th>Nota Prefeitura</th>
+                  <th>Tomador (ERP)</th>
+                  <th>Valor ERP (R$)</th>
+                  <th>Base Calc. Prefeitura (R$)</th>
+                  <th>Diferença (R$)</th>
+                  <th>Diagnóstico</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody">
+                <!-- Linhas dinâmicas preenchidas via JS -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal 1: Importação e Painel Consolidado de Lote -->
+  <div class="modal-overlay" id="batchModal" style="display: none;">
+    <div class="glass-panel modal-card modal-large">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-icon">📦</span>
+          <div>
+            <h3>Conferência de Faturamento em Lote</h3>
+            <p>Auditoria simultânea de todas as prefeituras a partir de um arquivo .ZIP</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close" id="btnCloseBatchModal">&times;</button>
       </div>
 
-      <!-- Tabela -->
-      <div class="table-wrapper">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Status</th>
-              <th>Ref. ERP (RPS/Nota)</th>
-              <th>Nota Prefeitura</th>
-              <th>Tomador (ERP)</th>
-              <th>Valor ERP (R$)</th>
-              <th>Base Calc. Prefeitura (R$)</th>
-              <th>Diferença (R$)</th>
-              <th>Diagnóstico</th>
-            </tr>
-          </thead>
-          <tbody id="tableBody">
-            <!-- Linhas dinâmicas preenchidas via JS -->
-          </tbody>
-        </table>
+      <!-- Zona de Upload de Arquivo ZIP -->
+      <div class="batch-upload-zone" id="batchUploadZone">
+        <div class="dropzone" id="dropzoneZip" style="margin-bottom: 16px;">
+          <div class="dropzone-icon">🗂️</div>
+          <h3>Arquivo Compactado (.ZIP)</h3>
+          <p>Envie um arquivo .ZIP contendo subpastas com o nome de cada prefeitura (ex: Recife/, São Paulo/)</p>
+          <div class="file-status" id="zipFileStatus">Nenhum arquivo compactado selecionado</div>
+          <input type="file" id="zipFileInput" accept=".zip">
+        </div>
+
+        <div class="action-bar" style="border: none; padding: 0;">
+          <button type="button" class="btn-demo" id="btnBatchDemo">
+            ⚡ Testar Lote Modelo (Todas as 18 Prefeituras)
+          </button>
+          <button type="button" class="btn-primary" id="btnStartBatchAudit">
+            <span>Iniciar Conferência em Lote</span>
+          </button>
+        </div>
       </div>
-    </section>
 
-  </main>
+      <!-- Painel Consolidado de Resultados da Lote (Preenchido via JS ao finalizar) -->
+      <div class="batch-summary-panel" id="batchSummaryPanel" style="display: none;">
+        <div class="dashboard-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 20px;">
+          <div class="glass-panel stat-card">
+            <div class="stat-title">Total Auditado (Lote)</div>
+            <div class="stat-value" id="batchTotalAudited" style="font-size: 20px;">R$ 0,00</div>
+            <div class="stat-sub" id="batchTotalSub">18 de 18 prefeituras</div>
+          </div>
+          <div class="glass-panel stat-card conciliados">
+            <div class="stat-title">Cidades 100% Conciliadas</div>
+            <div class="stat-value" id="batchMatchedCount" style="color: var(--status-success-text); font-size: 20px;">0</div>
+            <div class="stat-sub">Sem divergências</div>
+          </div>
+          <div class="glass-panel stat-card divergentes">
+            <div class="stat-title">Cidades com Divergência</div>
+            <div class="stat-value" id="batchDivergentCount" style="color: var(--status-danger-text); font-size: 20px;">0</div>
+            <div class="stat-sub">Exigem atenção</div>
+          </div>
+          <div class="glass-panel stat-card sobras">
+            <div class="stat-title">Assertividade Geral</div>
+            <div class="stat-value" id="batchAccuracy" style="color: var(--status-info-text); font-size: 20px;">100%</div>
+            <div class="stat-sub">Tolerância: R$ 0,04</div>
+          </div>
+        </div>
 
-  <!-- Modal de Progresso Fluído -->
-  <div class="modal-overlay" id="progressModal" style="display: none;">
+        <h4>📍 Resumo por Prefeitura</h4>
+        <div class="table-wrapper" style="max-height: 350px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Prefeitura</th>
+                <th>Qtd ERP</th>
+                <th>Valor ERP (R$)</th>
+                <th>Qtd Prefeitura</th>
+                <th>Valor Prefeitura (R$)</th>
+                <th>Diferença (R$)</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="batchTableBody">
+              <!-- Preenchido dinamicamente via JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
+          <button type="button" class="btn-reset" id="btnNewBatch">✨ Nova Análise em Lote</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 2: Barra de Progresso Fluído -->
+  <div class="modal-overlay" id="progressModal" style="display: none; z-index: 1100;">
     <div class="glass-panel modal-card">
       <div class="modal-header">
         <div class="spinner-pulse">⚙️</div>
@@ -186,6 +335,42 @@
       <div class="progress-footer">
         <span class="progress-percent" id="progressPercentText">0%</span>
         <span class="progress-city-info" id="progressCityInfo">Alvo: Prefeitura de Recife</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 3 (Sobreposto): Auditoria Detalhada de uma Cidade Específica da Lote -->
+  <div class="modal-overlay" id="cityDetailModal" style="display: none; z-index: 1200;">
+    <div class="glass-panel modal-card modal-large">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-icon">📍</span>
+          <div>
+            <h3 id="detailCityTitle">Detalhes da Prefeitura</h3>
+            <p id="detailCitySub">Conferência individual das notas fiscais</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close" id="btnCloseCityDetailModal">&times;</button>
+      </div>
+
+      <div class="table-wrapper" style="max-height: 450px;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Ref. ERP (RPS/Nota)</th>
+              <th>Nota Prefeitura</th>
+              <th>Tomador (ERP)</th>
+              <th>Valor ERP (R$)</th>
+              <th>Base Calc. Prefeitura (R$)</th>
+              <th>Diferença (R$)</th>
+              <th>Diagnóstico</th>
+            </tr>
+          </thead>
+          <tbody id="detailCityTableBody">
+            <!-- Linhas dinâmicas preenchidas via JS -->
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
