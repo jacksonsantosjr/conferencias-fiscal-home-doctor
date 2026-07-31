@@ -393,8 +393,18 @@ body {
 }
 
 .city-select option {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+[data-theme="dark"] .city-select option {
   background: #0f172a;
   color: #f8fafc;
+}
+
+[data-theme="light"] .city-select option {
+  background: #ffffff;
+  color: #0f172a;
 }
 
 /* Container Principal */

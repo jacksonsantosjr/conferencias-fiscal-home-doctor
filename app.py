@@ -47,24 +47,24 @@ from engine.reconciler import ReconciliationEngine
 PORT = 8000
 
 ALL_CITIES_CONFIG = [
-    {"name": "Recife", "folder": "Recife", "erp": "NFe_E_V3_06199364_20260601_20260630.csv", "city_file": "Relatório de Notas Fiscais Emitidas Recife.pdf", "parser": RecifeParser},
-    {"name": "São Paulo", "folder": "São Paulo", "erp": "NFSe_E_24851175_20260601_20260630.csv", "city_file": "Relatório de Notas Fiscais Emitidas São Paulo.pdf", "parser": SaoPauloParser},
-    {"name": "São José dos Campos", "folder": "São Jose dos Campos", "erp": "Nota Fiscal.csv", "city_file": "Relatório de Notas Fiscais Emitidas São José dos Campos.pdf", "parser": SaoJoseDosCamposParser},
-    {"name": "Santos", "folder": "Santos", "erp": "Relatório de Notas Fiscais Emitidas Santos.pdf", "city_file": "consulta_xlsx_0.xlsx", "parser": SantosParser},
-    {"name": "Campinas", "folder": "Campinas", "erp": "Relatório de Notas Fiscais Emitidas Campinas.pdf", "city_file": "Nota Fiscal Prefeitura de Campinas.csv", "parser": CampinasParser},
-    {"name": "Brasília", "folder": "Brasilia", "erp": "Relatório de Notas Fiscais Emitidas Brasilia.pdf", "city_file": "Nota Fiscal Prefeitura de Brasilia.csv", "parser": BrasiliaParser},
-    {"name": "Rio de Janeiro", "folder": "Rio de Janeiro", "erp": "Relatório de Notas Fiscais Emitidas Rio de Janeiro.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Rio de Janeiro.xlsx", "parser": RioDeJaneiroParser},
-    {"name": "Volta Redonda", "folder": "Volta Redonda", "erp": "Relatório de Notas Fiscais Emitidas Volta Redonda.pdf", "city_file": "08965795000265 NFS-E EMITIDAS - 30_07_2026.xls", "parser": VoltaRedondaParser},
-    {"name": "João Pessoa", "folder": "João Pessoa", "erp": "Relatório de Notas Fiscais Emitidas João Pessoa.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 João Pessoa.xlsx", "parser": JoaoPessoaParser},
-    {"name": "Fortaleza", "folder": "Fortaleza", "erp": "Relatório de Notas Fiscais Emitidas Fortaleza.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Fortaleza.xlsx", "parser": FortalezaParser},
-    {"name": "São Luís", "folder": "São Luis", "erp": "Relatório de Notas Fiscais Emitidas São Luis.pdf", "city_file": "Prefeitura_São_Luis_relatorioServicosPrestados_062026.pdf", "parser": SaoLuisParser},
+    {"name": "Aracaju", "folder": "Aracaju", "erp": "Relatório de Notas Fiscais Emitidas Aracaju.pdf", "city_file": "NFS-e Emitidas - BAHIA HOME CARE SERVICOS MEDICOS DOMICILIARES LTDA - 07.766.008_0005-36_Aracaju.csv", "parser": AracajuParser},
     {"name": "Belém", "folder": "Belém", "erp": "Relatório de Notas Fiscais Emitidas Belém.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Belém.xlsx", "parser": BelemParser},
-    {"name": "Curitiba", "folder": "Curitiba", "erp": "Relatório de Notas Fiscais Emitidas Curitiba.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Curitiba.xlsx", "parser": CuritibaParser},
-    {"name": "Uberlândia", "folder": "Uberlândia", "erp": "Relatório de Notas Fiscais Emitidas Uberlândia.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Uberlândia.xlsx", "parser": UberlandiaParser},
-    {"name": "Salvador", "folder": "Salvador", "erp": "Relatório de Notas Fiscais Emitidas Salvador.pdf", "city_file": "NFSe_E_27112200186_20260601_20260630.csv", "parser": SalvadorParser},
     {"name": "Belo Horizonte", "folder": "Belo Horizonte", "erp": "Relatório de Notas Fiscais Emitidas Belo Horizonte.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Belo Horizonte.xlsx", "parser": BeloHorizonteParser},
+    {"name": "Brasília", "folder": "Brasilia", "erp": "Relatório de Notas Fiscais Emitidas Brasilia.pdf", "city_file": "Nota Fiscal Prefeitura de Brasilia.csv", "parser": BrasiliaParser},
+    {"name": "Campinas", "folder": "Campinas", "erp": "Relatório de Notas Fiscais Emitidas Campinas.pdf", "city_file": "Nota Fiscal Prefeitura de Campinas.csv", "parser": CampinasParser},
+    {"name": "Curitiba", "folder": "Curitiba", "erp": "Relatório de Notas Fiscais Emitidas Curitiba.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Curitiba.xlsx", "parser": CuritibaParser},
+    {"name": "Fortaleza", "folder": "Fortaleza", "erp": "Relatório de Notas Fiscais Emitidas Fortaleza.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Fortaleza.xlsx", "parser": FortalezaParser},
     {"name": "Goiânia", "folder": "Goiânia", "erp": "Relatório de Notas Fiscais Emitidas Goiânia.pdf", "city_file": "Relatorio de Notas Fiscais Prefeitura de Goiânia 062026.csv", "parser": GoianiaParser},
-    {"name": "Aracaju", "folder": "Aracaju", "erp": "Relatório de Notas Fiscais Emitidas Aracaju.pdf", "city_file": "NFS-e Emitidas - BAHIA HOME CARE SERVICOS MEDICOS DOMICILIARES LTDA - 07.766.008_0005-36_Aracaju.csv", "parser": AracajuParser}
+    {"name": "João Pessoa", "folder": "João Pessoa", "erp": "Relatório de Notas Fiscais Emitidas João Pessoa.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 João Pessoa.xlsx", "parser": JoaoPessoaParser},
+    {"name": "Recife", "folder": "Recife", "erp": "NFe_E_V3_06199364_20260601_20260630.csv", "city_file": "Relatório de Notas Fiscais Emitidas Recife.pdf", "parser": RecifeParser},
+    {"name": "Rio de Janeiro", "folder": "Rio de Janeiro", "erp": "Relatório de Notas Fiscais Emitidas Rio de Janeiro.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Rio de Janeiro.xlsx", "parser": RioDeJaneiroParser},
+    {"name": "Salvador", "folder": "Salvador", "erp": "Relatório de Notas Fiscais Emitidas Salvador.pdf", "city_file": "NFSe_E_27112200186_20260601_20260630.csv", "parser": SalvadorParser},
+    {"name": "Santos", "folder": "Santos", "erp": "Relatório de Notas Fiscais Emitidas Santos.pdf", "city_file": "consulta_xlsx_0.xlsx", "parser": SantosParser},
+    {"name": "São José dos Campos", "folder": "São Jose dos Campos", "erp": "Nota Fiscal.csv", "city_file": "Relatório de Notas Fiscais Emitidas São José dos Campos.pdf", "parser": SaoJoseDosCamposParser},
+    {"name": "São Luís", "folder": "São Luis", "erp": "Relatório de Notas Fiscais Emitidas São Luis.pdf", "city_file": "Prefeitura_São_Luis_relatorioServicosPrestados_062026.pdf", "parser": SaoLuisParser},
+    {"name": "São Paulo", "folder": "São Paulo", "erp": "NFSe_E_24851175_20260601_20260630.csv", "city_file": "Relatório de Notas Fiscais Emitidas São Paulo.pdf", "parser": SaoPauloParser},
+    {"name": "Uberlândia", "folder": "Uberlândia", "erp": "Relatório de Notas Fiscais Emitidas Uberlândia.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Uberlândia.xlsx", "parser": UberlandiaParser},
+    {"name": "Volta Redonda", "folder": "Volta Redonda", "erp": "Relatório de Notas Fiscais Emitidas Volta Redonda.pdf", "city_file": "08965795000265 NFS-E EMITIDAS - 30_07_2026.xls", "parser": VoltaRedondaParser}
 ]
 
 def parse_multipart_data(data: bytes, boundary: bytes) -> Dict[str, Any]:
