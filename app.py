@@ -563,18 +563,21 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
             else:
                 city_parser = RecifeParser()
 
-            # Tentativa 1: Ordem Direta
-            erp_items = erp_parser.parse_file(file1_bytes)
-            city_items = city_parser.parse(file2_bytes)
+            # Pareamento Inteligente por Pontuação (Trata automaticamente caso o usuário inverta a ordem dos anexos)
+            e1 = erp_parser.parse_file(file1_bytes)
+            c1 = city_parser.parse(file2_bytes)
+            score1 = len(e1) + len(c1)
 
-            # Tentativa 2: Inversão de Arquivos caso um leitor retorne vazio
-            if not erp_items or not city_items:
-                alt_erp = erp_parser.parse_file(file2_bytes)
-                alt_city = city_parser.parse(file1_bytes)
+            e2 = erp_parser.parse_file(file2_bytes)
+            c2 = city_parser.parse(file1_bytes)
+            score2 = len(e2) + len(c2)
 
-                if (alt_erp and alt_city) or (len(alt_erp) + len(alt_city) > len(erp_items) + len(city_items)):
-                    erp_items = alt_erp
-                    city_items = alt_city
+            if score2 > score1:
+                erp_items = e2
+                city_items = c2
+            else:
+                erp_items = e1
+                city_items = c1
 
             if not erp_items:
                 self.send_json_response({
@@ -602,6 +605,7 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(status_code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write(body)
 

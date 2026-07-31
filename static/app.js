@@ -434,10 +434,13 @@ document.addEventListener('DOMContentLoaded', () => {
       formData.append('city_file', selectedCityFile);
       formData.append('city', selectedCity);
 
-      const response = await fetch('/api/reconcile', {
-        method: 'POST',
-        body: formData
-      });
+      let response;
+      try {
+        response = await fetch('/api/reconcile', { method: 'POST', body: formData });
+      } catch (firstErr) {
+        await new Promise(r => setTimeout(r, 300));
+        response = await fetch('/api/reconcile', { method: 'POST', body: formData });
+      }
 
       const data = await response.json();
       await finishSmoothProgress();
