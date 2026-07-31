@@ -118,7 +118,8 @@ body {
 /* Botão Circular Flutuante de Alternância (CND Style) */
 .sidebar-toggle-btn {
   position: absolute;
-  top: 28px;
+  top: 50%;
+  transform: translateY(-50%);
   right: -14px;
   width: 28px;
   height: 28px;
@@ -133,13 +134,13 @@ body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   backdrop-filter: blur(12px);
   z-index: 105;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .sidebar-toggle-btn:hover {
   background: var(--primary-blue);
   color: #ffffff;
-  transform: scale(1.1);
+  transform: translateY(-50%) scale(1.1);
   box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
 }
 
