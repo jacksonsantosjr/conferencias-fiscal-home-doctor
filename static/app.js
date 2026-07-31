@@ -389,13 +389,45 @@ document.addEventListener('DOMContentLoaded', () => {
     );
 
     try {
-      const response = await fetch('/api/reconcile-demo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ city: selectedCity })
-      });
+      let response;
+      try {
+        response = await fetch('/api/reconcile-demo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ city: selectedCity })
+        });
+      } catch (firstErr) {
+        console.warn('[Demo] 1ª tentativa falhou, retry...', firstErr);
+        await new Promise(r => setTimeout(r, 500));
+        response = await fetch('/api/reconcile-demo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ city: selectedCity })
+        });
+      }
 
-      const data = await response.json();
+      let responseText;
+      try {
+        responseText = await response.text();
+      } catch (readErr) {
+        console.error('[Demo] Erro ao ler resposta:', readErr);
+        if (activeProgressTimer) clearInterval(activeProgressTimer);
+        hideProgressModal();
+        alert('Erro ao ler a resposta do servidor. Tente novamente.');
+        return;
+      }
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (jsonErr) {
+        console.error('[Demo] Resposta não é JSON válido:', responseText.substring(0, 500), jsonErr);
+        if (activeProgressTimer) clearInterval(activeProgressTimer);
+        hideProgressModal();
+        alert('Resposta inválida do servidor. Tente novamente.');
+        return;
+      }
+
       await finishSmoothProgress();
 
       if (data.success) {
@@ -405,9 +437,10 @@ document.addEventListener('DOMContentLoaded', () => {
         alert(data.error || 'Erro ao processar modelo.');
       }
     } catch (err) {
+      console.error('[Demo] Erro inesperado:', err);
       if (activeProgressTimer) clearInterval(activeProgressTimer);
       hideProgressModal();
-      alert('Erro ao conectar ao servidor local.');
+      alert('Erro inesperado: ' + (err.message || err));
     }
   });
 
@@ -438,11 +471,41 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         response = await fetch('/api/reconcile', { method: 'POST', body: formData });
       } catch (firstErr) {
-        await new Promise(r => setTimeout(r, 300));
-        response = await fetch('/api/reconcile', { method: 'POST', body: formData });
+        console.warn('[Conferência] 1ª tentativa falhou, aguardando 500ms para retry...', firstErr);
+        await new Promise(r => setTimeout(r, 500));
+        try {
+          response = await fetch('/api/reconcile', { method: 'POST', body: formData });
+        } catch (secondErr) {
+          console.error('[Conferência] 2ª tentativa também falhou:', secondErr);
+          if (activeProgressTimer) clearInterval(activeProgressTimer);
+          hideProgressModal();
+          alert('Não foi possível conectar ao servidor. Verifique se o servidor está em execução e tente novamente.');
+          return;
+        }
       }
 
-      const data = await response.json();
+      let responseText;
+      try {
+        responseText = await response.text();
+      } catch (readErr) {
+        console.error('[Conferência] Erro ao ler corpo da resposta:', readErr);
+        if (activeProgressTimer) clearInterval(activeProgressTimer);
+        hideProgressModal();
+        alert('Erro ao ler a resposta do servidor. Tente novamente.');
+        return;
+      }
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (jsonErr) {
+        console.error('[Conferência] Resposta não é JSON válido:', responseText.substring(0, 500), jsonErr);
+        if (activeProgressTimer) clearInterval(activeProgressTimer);
+        hideProgressModal();
+        alert('Resposta inválida do servidor. Tente novamente.');
+        return;
+      }
+
       await finishSmoothProgress();
 
       if (data.success) {
@@ -452,9 +515,10 @@ document.addEventListener('DOMContentLoaded', () => {
         alert(data.error || 'Falha na auditoria.');
       }
     } catch (err) {
+      console.error('[Conferência] Erro inesperado:', err);
       if (activeProgressTimer) clearInterval(activeProgressTimer);
       hideProgressModal();
-      alert('Erro na comunicação com o servidor.');
+      alert('Erro inesperado: ' + (err.message || err));
     }
   });
 
@@ -564,7 +628,78 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Normaliza a resposta do backend para formato com lista plana 'items'
+  function normalizeResult(result) {
+    if (result.items) return result; // Já está normalizado
+
+    const items = [];
+
+    // Conciliados (incluindo TOLERANCIA)
+    (result.conciliados || []).forEach(m => {
+      items.push({
+        status: m.status === 'TOLERANCIA' ? 'CONCILIADO' : (m.status || 'CONCILIADO'),
+        numero_erp: m.erp?.numero || m.erp?.rps || '-',
+        rps_erp: m.erp?.rps || '',
+        numero_prefeitura: m.prefeitura?.numero || '-',
+        tomador: m.erp?.tomador || m.prefeitura?.tomador || '-',
+        valor_erp: m.valor_erp || 0,
+        valor_prefeitura: m.valor_prefeitura || 0,
+        diferenca: m.diferenca || 0,
+        diagnostico: m.detalhe || 'Conciliado'
+      });
+    });
+
+    // Divergentes
+    (result.divergentes || []).forEach(m => {
+      items.push({
+        status: 'DIVERGENTE',
+        numero_erp: m.erp?.numero || m.erp?.rps || m.numero || '-',
+        rps_erp: m.erp?.rps || '',
+        numero_prefeitura: m.prefeitura?.numero || m.numero || '-',
+        tomador: m.erp?.tomador || m.prefeitura?.tomador || m.tomador || '-',
+        valor_erp: m.valor_erp || 0,
+        valor_prefeitura: m.valor_prefeitura || 0,
+        diferenca: m.diferenca || 0,
+        diagnostico: m.detalhe || 'Divergência de valores'
+      });
+    });
+
+    // Somente ERP
+    (result.somente_erp || []).forEach(e => {
+      items.push({
+        status: 'SOMENTE_ERP',
+        numero_erp: e.numero || e.rps || '-',
+        rps_erp: e.rps || '',
+        numero_prefeitura: '-',
+        tomador: e.tomador || '-',
+        valor_erp: e.valor || 0,
+        valor_prefeitura: 0,
+        diferenca: e.valor || 0,
+        diagnostico: 'Nota presente no ERP mas não localizada na Prefeitura'
+      });
+    });
+
+    // Somente Prefeitura
+    (result.somente_prefeitura || []).forEach(c => {
+      items.push({
+        status: 'SOMENTE_PREFEITURA',
+        numero_erp: '-',
+        rps_erp: '',
+        numero_prefeitura: c.numero || '-',
+        tomador: c.tomador || '-',
+        valor_erp: 0,
+        valor_prefeitura: c.valor || 0,
+        diferenca: c.valor || 0,
+        diagnostico: 'Nota presente na Prefeitura mas não localizada no ERP'
+      });
+    });
+
+    result.items = items;
+    return result;
+  }
+
   function renderResults(result) {
+    result = normalizeResult(result);
     const resumo = result.resumo;
     document.getElementById('statTotalAudited').textContent = formatCurrency(resumo.total_erp_valor);
     document.getElementById('statTotalCount').textContent = `${resumo.total_erp_qtd} notas no ERP | ${resumo.total_prefeitura_qtd} na Prefeitura`;
