@@ -225,13 +225,17 @@ document.addEventListener('DOMContentLoaded', () => {
     runBatchAnalysis('/api/reconcile-batch', formData);
   });
 
-  // Executa Análise em Lote com Animação Fluída de Progresso
+  // Executa Análise em Lote com Animação Fluída Contínua de Progresso (0% a 100%)
   async function runBatchAnalysis(endpoint, formData) {
-    showProgressModal();
-    progressCityInfo.textContent = 'Modo: Conferência Geral em Lote (18 Prefeituras)';
-
-    await animateProgress(0, 30, 'Lendo relatórios do ERP e Prefeituras...', 600);
-    await animateProgress(30, 70, 'Conciliando bases de cálculo e alíquotas de todas as cidades...', 800);
+    startSmoothProgress(
+      'Modo: Conferência Geral em Lote (18 Prefeituras)',
+      [
+        'Descompactando e lendo relatórios do ERP e Prefeituras...',
+        'Auditando bases de cálculo e alíquotas de todas as cidades...',
+        'Cruzando notas fiscais e identificando divergências...',
+        'Consolidando lote das 18 prefeituras...'
+      ]
+    );
 
     try {
       let response;
@@ -241,10 +245,8 @@ document.addEventListener('DOMContentLoaded', () => {
         response = await fetch(endpoint, { method: 'POST' });
       }
 
-      await animateProgress(70, 100, 'Consolidando indicadores e relatórios finais...', 400);
-
       const data = await response.json();
-      hideProgressModal();
+      await finishSmoothProgress();
 
       if (data.success) {
         currentBatchData = data;
@@ -253,6 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
         alert(data.error || 'Erro ao realizar conferência em lote.');
       }
     } catch (err) {
+      if (activeProgressTimer) clearInterval(activeProgressTimer);
       hideProgressModal();
       alert('Erro de conexão com o servidor de auditoria.');
     }
@@ -371,11 +374,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // ========================================================
   btnLoadDemo.addEventListener('click', async () => {
     const selectedCity = document.getElementById('citySelect').value;
-    showProgressModal();
-    progressCityInfo.textContent = `Alvo: Prefeitura de ${selectedCity}`;
-
-    await animateProgress(0, 40, 'Lendo modelo oficial do ERP e da Prefeitura...', 500);
-    await animateProgress(40, 80, 'Executando regras de conciliação e margem...', 600);
+    startSmoothProgress(
+      `Demonstração: Prefeitura de ${selectedCity}`,
+      [
+        'Carregando modelo oficial do ERP e Prefeitura...',
+        'Executando regras de conciliação e margem de R$ 0,04...',
+        'Cruzando notas fiscais e verificando divergências...',
+        'Gerando relatório final...'
+      ]
+    );
 
     try {
       const response = await fetch('/api/reconcile-demo', {
@@ -384,10 +391,8 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({ city: selectedCity })
       });
 
-      await animateProgress(80, 100, 'Gerando relatório detalhado...', 300);
-
       const data = await response.json();
-      hideProgressModal();
+      await finishSmoothProgress();
 
       if (data.success) {
         currentReconciliationData = data.result;
@@ -396,6 +401,7 @@ document.addEventListener('DOMContentLoaded', () => {
         alert(data.error || 'Erro ao processar modelo.');
       }
     } catch (err) {
+      if (activeProgressTimer) clearInterval(activeProgressTimer);
       hideProgressModal();
       alert('Erro ao conectar ao servidor local.');
     }
@@ -408,11 +414,15 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    showProgressModal();
-    progressCityInfo.textContent = `Alvo: Prefeitura de ${selectedCity}`;
-
-    await animateProgress(0, 30, 'Extraindo linhas e colunas dos arquivos enviados...', 600);
-    await animateProgress(30, 75, 'Cruzando notas fiscais e verificando tolerância de R$ 0,04...', 800);
+    startSmoothProgress(
+      `Alvo: Prefeitura de ${selectedCity}`,
+      [
+        'Extraindo dados dos arquivos do ERP e Prefeitura...',
+        'Cruzando notas fiscais e verificando tolerância de R$ 0,04...',
+        'Analisando inconsistências e agrupando resultados...',
+        'Finalizando auditoria fiscal...'
+      ]
+    );
 
     try {
       const formData = new FormData();
@@ -425,10 +435,8 @@ document.addEventListener('DOMContentLoaded', () => {
         body: formData
       });
 
-      await animateProgress(75, 100, 'Finalizando auditoria fiscal...', 300);
-
       const data = await response.json();
-      hideProgressModal();
+      await finishSmoothProgress();
 
       if (data.success) {
         currentReconciliationData = data.result;
@@ -437,6 +445,7 @@ document.addEventListener('DOMContentLoaded', () => {
         alert(data.error || 'Falha na auditoria.');
       }
     } catch (err) {
+      if (activeProgressTimer) clearInterval(activeProgressTimer);
       hideProgressModal();
       alert('Erro na comunicação com o servidor.');
     }
@@ -446,22 +455,21 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedErpFile = null;
     selectedCityFile = null;
     currentReconciliationData = null;
-
     erpFileInput.value = '';
     cityFileInput.value = '';
-
     erpFileStatus.textContent = 'Nenhum arquivo selecionado';
-    erpFileStatus.classList.remove('active');
-
     cityFileStatus.textContent = 'Nenhum arquivo selecionado';
+    erpFileStatus.classList.remove('active');
     cityFileStatus.classList.remove('active');
-
     dashboardGrid.style.display = 'none';
     resultsSection.style.display = 'none';
     tableBody.innerHTML = '';
   });
 
-  // Funções Auxiliares de Progresso e Formatação
+  // Funções Auxiliares de Progresso Fluído Contínuo e Formatação
+  let activeProgressTimer = null;
+  let currentPercentValue = 0;
+
   function showProgressModal() {
     progressModal.style.display = 'flex';
     progressBarFill.style.width = '0%';
@@ -472,23 +480,65 @@ document.addEventListener('DOMContentLoaded', () => {
     progressModal.style.display = 'none';
   }
 
-  function animateProgress(fromPercent, toPercent, stepText, duration) {
+  function startSmoothProgress(infoText, stepsList) {
+    showProgressModal();
+    progressCityInfo.textContent = infoText;
+    currentPercentValue = 0;
+    progressBarFill.style.width = '0%';
+    progressPercentText.textContent = '0%';
+    progressStepText.textContent = stepsList[0] || 'Iniciando auditoria...';
+
+    if (activeProgressTimer) clearInterval(activeProgressTimer);
+
+    let stepIdx = 0;
+    activeProgressTimer = setInterval(() => {
+      if (currentPercentValue < 92) {
+        // Incrementa suavemente reduzindo a velocidade conforme se aproxima dos 90%
+        const increment = Math.max(0.4, (92 - currentPercentValue) * 0.08);
+        currentPercentValue += increment;
+        const displayVal = Math.floor(currentPercentValue);
+
+        progressBarFill.style.width = `${displayVal}%`;
+        progressPercentText.textContent = `${displayVal}%`;
+
+        if (displayVal > 25 && stepIdx === 0 && stepsList[1]) {
+          stepIdx = 1;
+          progressStepText.textContent = stepsList[1];
+        } else if (displayVal > 55 && stepIdx === 1 && stepsList[2]) {
+          stepIdx = 2;
+          progressStepText.textContent = stepsList[2];
+        } else if (displayVal > 80 && stepIdx === 2 && stepsList[3]) {
+          stepIdx = 3;
+          progressStepText.textContent = stepsList[3];
+        }
+      }
+    }, 100);
+  }
+
+  function finishSmoothProgress() {
     return new Promise(resolve => {
-      progressStepText.textContent = stepText;
-      const startTime = performance.now();
+      if (activeProgressTimer) clearInterval(activeProgressTimer);
+      progressStepText.textContent = 'Consolidando indicadores e relatórios finais...';
+
+      let startVal = Math.floor(currentPercentValue);
+      let startTime = performance.now();
+      let duration = 300; // 300ms para ir de onde parou até 100%
 
       function update(currentTime) {
-        const elapsed = currentTime - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        const currentPercent = Math.round(fromPercent + (toPercent - fromPercent) * progress);
+        let elapsed = currentTime - startTime;
+        let p = Math.min(elapsed / duration, 1);
+        let val = Math.round(startVal + (100 - startVal) * p);
 
-        progressBarFill.style.width = `${currentPercent}%`;
-        progressPercentText.textContent = `${currentPercent}%`;
+        progressBarFill.style.width = `${val}%`;
+        progressPercentText.textContent = `${val}%`;
 
-        if (progress < 1) {
+        if (p < 1) {
           requestAnimationFrame(update);
         } else {
-          resolve();
+          setTimeout(() => {
+            hideProgressModal();
+            resolve();
+          }, 200);
         }
       }
       requestAnimationFrame(update);
