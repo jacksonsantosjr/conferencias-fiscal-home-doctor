@@ -109,11 +109,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     if (theme === 'light') {
-      themeIcon.textContent = '☀️';
-      themeLabel.textContent = 'Modo Claro';
-    } else {
       themeIcon.textContent = '🌙';
       themeLabel.textContent = 'Modo Escuro';
+    } else {
+      themeIcon.textContent = '☀️';
+      themeLabel.textContent = 'Modo Claro';
     }
   }
 
