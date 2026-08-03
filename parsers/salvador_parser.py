@@ -65,6 +65,8 @@ class SalvadorParser(BaseCityParser):
             idx_valor_iss = None
             idx_situacao = None
             idx_tomador = None
+            idx_iss_retido = None
+            idx_aliquota = None
 
             for idx, h in enumerate(headers):
                 if not h: continue
@@ -73,12 +75,16 @@ class SalvadorParser(BaseCityParser):
                     idx_numero = idx
                 elif 'valor dos servicos' in h_norm or 'valor servicos' in h_norm or ('valor' in h_norm and idx_valor is None):
                     idx_valor = idx
+                elif 'iss retido' in h_norm:
+                    idx_iss_retido = idx
                 elif 'iss devido' in h_norm or 'iss' in h_norm:
                     if idx_valor_iss is None: idx_valor_iss = idx
                 elif 'situacao' in h_norm or 'status' in h_norm:
                     idx_situacao = idx
                 elif 'razão social do tomador' in h_norm.replace('ã', 'a') or 'tomador' in h_norm:
                     idx_tomador = idx
+                elif 'aliquota' in h_norm or 'alíquota' in h_norm:
+                    idx_aliquota = idx
 
             if idx_numero is None: idx_numero = 1
             if idx_valor is None: idx_valor = 26
@@ -102,6 +108,14 @@ class SalvadorParser(BaseCityParser):
                 val_iss = 0.0
                 if idx_valor_iss is not None and idx_valor_iss < len(row):
                     val_iss = parse_val(row[idx_valor_iss].strip())
+
+                if idx_iss_retido is not None and idx_aliquota is not None:
+                    if idx_iss_retido < len(row) and idx_aliquota < len(row):
+                        retido = row[idx_iss_retido].strip().upper()
+                        if retido == 'S':
+                            aliquota = parse_val(row[idx_aliquota].strip())
+                            if aliquota > 0:
+                                val = round(val / (1 - (aliquota / 100)), 2)
 
                 num_cell = row[idx_numero].strip() if idx_numero < len(row) else f"SSA-{idx_row+1}"
                 nf = str(int(num_cell)) if num_cell.isdigit() else num_cell

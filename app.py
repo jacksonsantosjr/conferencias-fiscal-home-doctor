@@ -599,12 +599,10 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
             c2 = city_parser.parse(file1_bytes)
             score2 = len(e2) + len(c2)
 
-            if score2 > score1:
-                erp_items = e2
-                city_items = c2
+            if score2 > score1 + 5:
+                erp_items, city_items = e2, c2
             else:
-                erp_items = e1
-                city_items = c1
+                erp_items, city_items = e1, c1
 
             if not erp_items:
                 self.send_json_response({
