@@ -800,6 +800,67 @@ document.addEventListener('DOMContentLoaded', () => {
     if (accuracyChartInstance) {
       accuracyChartInstance.destroy();
     }
+    
+    // Registra o plugin de datalabels (carregado via CDN)
+    if (typeof ChartDataLabels !== 'undefined') {
+      Chart.register(ChartDataLabels);
+    }
+
+    // Plugin customizado para desenhar a linha de chamada (callout) dos rótulos externos
+    const calloutLinesPlugin = {
+      id: 'calloutLines',
+      afterDraw: (chart) => {
+        const ctx = chart.ctx;
+        const dataset = chart.data.datasets[0];
+        const meta = chart.getDatasetMeta(0);
+        const sum = dataset.data.reduce((a, b) => a + b, 0);
+
+        meta.data.forEach((arc, index) => {
+          const value = dataset.data[index];
+          if (value === 0) return;
+          const percentage = (value * 100 / sum);
+          
+          if (percentage > 0 && percentage < 5) {
+            const angle = (arc.startAngle + arc.endAngle) / 2;
+            const xCenter = arc.x;
+            const yCenter = arc.y;
+            const outerRadius = arc.outerRadius;
+            
+            const xEdge = xCenter + Math.cos(angle) * outerRadius;
+            const yEdge = yCenter + Math.sin(angle) * outerRadius;
+            
+            const offsetAmount = 20 + (index * 15);
+            const lineLength = offsetAmount;
+            
+            const xTarget = xCenter + Math.cos(angle) * (outerRadius + lineLength);
+            const yTarget = yCenter + Math.sin(angle) * (outerRadius + lineLength);
+            
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(xEdge, yEdge);
+            ctx.lineTo(xTarget, yTarget);
+            
+            // Adiciona um pequeno traço horizontal na direção da ponta para melhor estética
+            const sign = Math.cos(angle) >= 0 ? 1 : -1;
+            const endX = xTarget + (15 * sign);
+            ctx.lineTo(endX, yTarget);
+            
+            ctx.strokeStyle = dataset.backgroundColor[index]; // Linha na cor da fatia
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+            
+            // Desenha o texto do percentual na ponta da linha
+            ctx.fillStyle = dataset.backgroundColor[index]; // Cor do texto igual à fatia
+            ctx.font = 'bold 13px Inter, sans-serif';
+            ctx.textAlign = sign > 0 ? 'left' : 'right';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(percentage.toFixed(0) + "%", endX + (5 * sign), yTarget);
+            
+            ctx.restore();
+          }
+        });
+      }
+    };
 
     accuracyChartInstance = new Chart(ctx, {
       type: 'doughnut',
@@ -820,10 +881,32 @@ document.addEventListener('DOMContentLoaded', () => {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        cutout: '60%',
+        layout: {
+          padding: 70 // Aumentado bastante o espaço para rótulos externos não serem cortados
+        },
         plugins: {
           legend: {
             display: false
+          },
+          datalabels: {
+            color: '#ffffff',
+            anchor: 'center',
+            align: 'center',
+            font: {
+              weight: 'bold',
+              family: 'Inter',
+              size: 14
+            },
+            formatter: (value, context) => {
+              if (value === 0) return null; 
+              let sum = context.dataset.data.reduce((a, b) => a + b, 0);
+              if (sum === 0) return null;
+              let percentageValue = (value * 100 / sum);
+              // Como estamos desenhando os menores que 5% manualmente com as linhas,
+              // ocultamos eles aqui no plugin padrão.
+              if (percentageValue < 5) return null;
+              return percentageValue.toFixed(0) + "%";
+            }
           },
           tooltip: {
             backgroundColor: 'rgba(15, 23, 42, 0.9)',
@@ -833,7 +916,8 @@ document.addEventListener('DOMContentLoaded', () => {
             cornerRadius: 8
           }
         }
-      }
+      },
+      plugins: [calloutLinesPlugin]
     });
 
     // Custom Legend Rendering
