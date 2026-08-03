@@ -509,8 +509,17 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
             city_items = city_parser.parse(city_path)
 
             if mode == "iss":
+                erp_items = [
+                    item for item in erp_items
+                    if item.get("valor_iss", 0.0) > 0
+                ]
                 for item in erp_items:
                     item["valor"] = item.get("valor_iss", 0.0)
+
+                city_items = [
+                    item for item in city_items
+                    if item.get("iss_retido", "N").strip().upper() == "N" and item.get("valor_iss", 0.0) > 0
+                ]
                 for item in city_items:
                     item["valor"] = item.get("valor_iss", 0.0)
 
@@ -621,8 +630,17 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
             engine = ReconciliationEngine(tolerance=0.04)
 
             if mode == "iss":
+                erp_items = [
+                    item for item in erp_items
+                    if item.get("valor_iss", 0.0) > 0
+                ]
                 for item in erp_items:
                     item["valor"] = item.get("valor_iss", 0.0)
+
+                city_items = [
+                    item for item in city_items
+                    if item.get("iss_retido", "N").strip().upper() == "N" and item.get("valor_iss", 0.0) > 0
+                ]
                 for item in city_items:
                     item["valor"] = item.get("valor_iss", 0.0)
 

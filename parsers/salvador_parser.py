@@ -77,7 +77,7 @@ class SalvadorParser(BaseCityParser):
                     idx_valor = idx
                 elif 'iss retido' in h_norm:
                     idx_iss_retido = idx
-                elif 'iss devido' in h_norm or 'iss' in h_norm:
+                elif 'iss devido' in h_norm or 'valor do iss' in h_norm or h_norm == 'iss':
                     if idx_valor_iss is None: idx_valor_iss = idx
                 elif 'situacao' in h_norm or 'status' in h_norm:
                     idx_situacao = idx
@@ -88,7 +88,9 @@ class SalvadorParser(BaseCityParser):
 
             if idx_numero is None: idx_numero = 1
             if idx_valor is None: idx_valor = 26
+            if idx_valor_iss is None: idx_valor_iss = 30
             if idx_situacao is None: idx_situacao = 22
+            if idx_iss_retido is None: idx_iss_retido = 32
             if idx_tomador is None: idx_tomador = 42
 
             for idx_row, row in enumerate(reader):
@@ -96,8 +98,8 @@ class SalvadorParser(BaseCityParser):
                     continue
 
                 # Filtro estrito: apenas Situacao == 'T'
-                if idx_situacao is not None and idx_situacao < len(row):
-                    sit = row[idx_situacao].strip().upper()
+                if idx_situacao is not None:
+                    sit = row[idx_situacao].strip().upper() if idx_situacao < len(row) else ''
                     if sit != 'T':
                         continue
 
@@ -109,13 +111,7 @@ class SalvadorParser(BaseCityParser):
                 if idx_valor_iss is not None and idx_valor_iss < len(row):
                     val_iss = parse_val(row[idx_valor_iss].strip())
 
-                if idx_iss_retido is not None and idx_aliquota is not None:
-                    if idx_iss_retido < len(row) and idx_aliquota < len(row):
-                        retido = row[idx_iss_retido].strip().upper()
-                        if retido == 'S':
-                            aliquota = parse_val(row[idx_aliquota].strip())
-                            if aliquota > 0:
-                                val = round(val / (1 - (aliquota / 100)), 2)
+                iss_ret_str = row[idx_iss_retido].strip().upper() if (idx_iss_retido is not None and idx_iss_retido < len(row)) else "N"
 
                 num_cell = row[idx_numero].strip() if idx_numero < len(row) else f"SSA-{idx_row+1}"
                 nf = str(int(num_cell)) if num_cell.isdigit() else num_cell
@@ -127,6 +123,7 @@ class SalvadorParser(BaseCityParser):
                     "numero": nf,
                     "valor": val,
                     "valor_iss": val_iss,
+                    "iss_retido": iss_ret_str,
                     "raw_valor": raw_val,
                     "tomador": tomador,
                     "cidade": "Salvador"
@@ -148,6 +145,7 @@ class SalvadorParser(BaseCityParser):
             idx_valor_iss = None
             idx_situacao = None
             idx_tomador = None
+            idx_iss_retido = None
 
             for idx, h in enumerate(headers):
                 if not h: continue
@@ -156,8 +154,10 @@ class SalvadorParser(BaseCityParser):
                     idx_numero = idx
                 elif 'valor dos servicos' in h_norm or 'valor servicos' in h_norm or ('valor' in h_norm and idx_valor is None):
                     idx_valor = idx
-                elif 'iss devido' in h_norm or 'iss' in h_norm:
+                elif 'iss devido' in h_norm or 'valor do iss' in h_norm or h_norm == 'iss':
                     if idx_valor_iss is None: idx_valor_iss = idx
+                elif 'iss retido' in h_norm or 'retido' in h_norm:
+                    idx_iss_retido = idx
                 elif 'situacao' in h_norm or 'status' in h_norm:
                     idx_situacao = idx
                 elif 'tomador' in h_norm:
@@ -165,7 +165,9 @@ class SalvadorParser(BaseCityParser):
 
             if idx_numero is None: idx_numero = 1
             if idx_valor is None: idx_valor = 26
+            if idx_valor_iss is None: idx_valor_iss = 30
             if idx_situacao is None: idx_situacao = 22
+            if idx_iss_retido is None: idx_iss_retido = 32
 
             for row_idx in range(2, sheet.max_row+1):
                 num_cell = sheet.cell(row=row_idx, column=idx_numero+1).value
@@ -173,7 +175,8 @@ class SalvadorParser(BaseCityParser):
                 sit_cell = sheet.cell(row=row_idx, column=idx_situacao+1).value if idx_situacao is not None else 'T'
                 tomador_cell = sheet.cell(row=row_idx, column=idx_tomador+1).value if idx_tomador is not None else ''
 
-                if sit_cell and str(sit_cell).strip().upper() != 'T':
+                sit_str = str(sit_cell).strip().upper() if sit_cell is not None else ''
+                if idx_situacao is not None and sit_str != 'T':
                     continue
 
                 if val_cell is None: continue
@@ -186,6 +189,9 @@ class SalvadorParser(BaseCityParser):
                     if iss_cell is not None:
                         val_iss = parse_val(iss_cell)
 
+                iss_ret_cell = sheet.cell(row=row_idx, column=idx_iss_retido+1).value if idx_iss_retido is not None else "N"
+                iss_ret_str = str(iss_ret_cell).strip().upper() if iss_ret_cell is not None else "N"
+
                 nf = str(int(num_cell)) if isinstance(num_cell, (int, float)) else str(num_cell).strip()
 
                 records.append({
@@ -194,6 +200,7 @@ class SalvadorParser(BaseCityParser):
                     "numero": nf,
                     "valor": val,
                     "valor_iss": val_iss,
+                    "iss_retido": iss_ret_str,
                     "raw_valor": str(val_cell),
                     "tomador": str(tomador_cell or ''),
                     "cidade": "Salvador"

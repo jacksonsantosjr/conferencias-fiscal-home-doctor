@@ -411,7 +411,7 @@ body {
 
 /* Container Principal */
 .container {
-  max-width: 1280px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 40px 20px;
   display: flex;
@@ -768,13 +768,13 @@ body {
   background: var(--table-header-bg);
   color: var(--text-muted);
   font-weight: 600;
-  padding: 14px 18px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--card-border);
   white-space: nowrap;
 }
 
 .data-table td {
-  padding: 14px 18px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--card-border);
 }
 

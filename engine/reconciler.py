@@ -110,7 +110,7 @@ class ReconciliationEngine:
         # Divergência Total = Total Auditado no ERP - Total Conciliado + Sobras
         sobras_erp_val = sum(e["valor"] for e in final_somente_erp)
         sobras_pref_val = sum(c["valor"] for c in final_somente_prefeitura)
-        divergencia_total = round(abs(total_erp_val - total_conciliado_val) + sobras_erp_val, 2)
+        divergencia_total = round(sobras_erp_val + sobras_pref_val, 2)
 
         perc_conciliado = (len(matched) / len(erp_items) * 100) if erp_items else 0
 
