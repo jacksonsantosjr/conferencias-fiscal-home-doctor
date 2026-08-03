@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Conferência do Faturamento Fiscal - Home Doctor</title>
   <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -84,6 +85,7 @@
           <div class="city-badge-select">
             <label for="citySelect" style="font-size: 13px; color: var(--text-muted);">Prefeitura Alvo:</label>
             <select id="citySelect" class="city-select">
+              <option value="" selected disabled>Selecione uma prefeitura...</option>
               <option value="Aracaju">📍 Aracaju (Ativo)</option>
               <option value="Belém">📍 Belém (Ativo)</option>
               <option value="Belo Horizonte">📍 Belo Horizonte (Ativo)</option>
@@ -93,7 +95,7 @@
               <option value="Fortaleza">📍 Fortaleza (Ativo)</option>
               <option value="Goiânia">📍 Goiânia (Ativo)</option>
               <option value="João Pessoa">📍 João Pessoa (Ativo)</option>
-              <option value="Recife" selected>📍 Recife (Ativo)</option>
+              <option value="Recife">📍 Recife (Ativo)</option>
               <option value="Rio de Janeiro">📍 Rio de Janeiro (Ativo)</option>
               <option value="Salvador">📍 Salvador (Ativo)</option>
               <option value="Santos">📍 Santos (Ativo)</option>
@@ -109,51 +111,63 @@
 
       <main class="container">
         
-        <!-- Painel de Upload de Arquivos -->
+        <!-- Painel de Upload e Gráficos -->
         <section class="glass-panel upload-section">
-          <h2>📁 Importação dos Arquivos Fiscais</h2>
-          <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
-            Selecione os relatórios para a prefeitura selecionada ou execute a conferência em lote de todas as cidades.
-          </p>
+          <div id="uploadFormContainer">
+            <h2 id="uploadTitle">📁 Importação dos Arquivos Fiscais</h2>
+            <p id="uploadSub" style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
+              Selecione os relatórios para a prefeitura selecionada ou execute a conferência em lote de todas as cidades.
+            </p>
 
-          <div class="upload-grid">
-            <!-- Dropzone ERP -->
-            <div class="dropzone" id="dropzoneErp">
-              <div class="dropzone-icon">📊</div>
-              <h3>Relatório do ERP</h3>
-              <p>Selecione o relatório emitido pelo ERP (PDF, CSV, XLSX ou XLS)</p>
-              <div class="file-status" id="erpFileStatus">Nenhum arquivo selecionado</div>
-              <input type="file" id="erpFileInput" accept=".pdf,.csv,.xlsx,.xls,.txt">
+            <div class="upload-grid">
+              <!-- Dropzone ERP -->
+              <div class="dropzone" id="dropzoneErp">
+                <div class="dropzone-icon">📊</div>
+                <h3>Relatório do ERP</h3>
+                <p>Selecione o relatório emitido pelo ERP (PDF, CSV, XLSX ou XLS)</p>
+                <div class="file-status" id="erpFileStatus">Nenhum arquivo selecionado</div>
+                <input type="file" id="erpFileInput" accept=".pdf,.csv,.xlsx,.xls,.txt">
+              </div>
+
+              <!-- Dropzone Prefeitura -->
+              <div class="dropzone" id="dropzoneCity">
+                <div class="dropzone-icon">🏛️</div>
+                <h3>Relatório da Prefeitura</h3>
+                <p>Selecione o relatório oficial da Prefeitura (PDF, CSV, XLSX ou XLS)</p>
+                <div class="file-status" id="cityFileStatus">Nenhum arquivo selecionado</div>
+                <input type="file" id="cityFileInput" accept=".pdf,.csv,.xlsx,.xls,.txt">
+              </div>
             </div>
 
-            <!-- Dropzone Prefeitura -->
-            <div class="dropzone" id="dropzoneCity">
-              <div class="dropzone-icon">🏛️</div>
-              <h3>Relatório da Prefeitura</h3>
-              <p>Selecione o relatório oficial da Prefeitura (PDF, CSV, XLSX ou XLS)</p>
-              <div class="file-status" id="cityFileStatus">Nenhum arquivo selecionado</div>
-              <input type="file" id="cityFileInput" accept=".pdf,.csv,.xlsx,.xls,.txt">
+            <div class="action-bar">
+              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button type="button" class="btn-demo" id="btnLoadDemo">
+                  ⚡ Usar Arquivos de Modelo
+                </button>
+                <button type="button" class="btn-batch" id="btnBatchModal" title="Abrir Painel de Conferência em Lote de Todas as Prefeituras">
+                  📦 Conferência em Lote
+                </button>
+              </div>
+
+              <button type="button" class="btn-primary" id="btnStartAudit">
+                <span>Realizar Conferência Fiscal</span>
+              </button>
             </div>
           </div>
 
-          <div class="action-bar">
-            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-              <button type="button" class="btn-demo" id="btnLoadDemo">
-                ⚡ Usar Arquivos de Modelo
-              </button>
-              
+          <!-- Container do Gráfico (Oculto inicialmente) -->
+          <div id="chartContainer" style="display: none;">
+            <div class="chart-wrapper">
+              <canvas id="accuracyChart"></canvas>
+            </div>
+            
+            <div id="customLegend" class="custom-legend"></div>
+
+            <div class="chart-actions">
               <button type="button" class="btn-reset" id="btnResetAll" title="Iniciar nova análise e resetar formulário">
                 ✨ Nova Análise
               </button>
-
-              <button type="button" class="btn-batch" id="btnBatchModal" title="Abrir Painel de Conferência em Lote de Todas as Prefeituras">
-                📦 Conferência em Lote
-              </button>
             </div>
-
-            <button type="button" class="btn-primary" id="btnStartAudit">
-              <span>Realizar Conferência Fiscal</span>
-            </button>
           </div>
         </section>
 

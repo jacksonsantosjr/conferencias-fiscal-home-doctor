@@ -68,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentBatchData = null;
   let activeTab = 'all';
   let currentMode = 'faturamento'; // 'faturamento' ou 'iss'
+  let accuracyChartInstance = null;
 
   const moduleState = {
     faturamento: { reconciliationData: null, batchData: null },
@@ -125,6 +126,8 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         dashboardGrid.style.display = 'none';
         resultsSection.style.display = 'none';
+        document.getElementById('uploadFormContainer').style.display = 'block';
+        document.getElementById('chartContainer').style.display = 'none';
         tableBody.innerHTML = '';
       }
       
@@ -419,6 +422,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // ========================================================
   btnLoadDemo.addEventListener('click', async () => {
     const selectedCity = document.getElementById('citySelect').value;
+    if (!selectedCity) {
+      alert('Por favor, selecione uma prefeitura antes de continuar.');
+      return;
+    }
     startSmoothProgress(
       `Demonstração: Prefeitura de ${selectedCity}`,
       [
@@ -488,6 +495,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   btnStartAudit.addEventListener('click', async () => {
     const selectedCity = document.getElementById('citySelect').value;
+    if (!selectedCity) {
+      alert('Por favor, selecione uma prefeitura antes de continuar.');
+      return;
+    }
     if (!selectedErpFile || !selectedCityFile) {
       alert('Por favor, selecione ambos os relatórios (ERP e Prefeitura) antes de iniciar a conferência.');
       return;
@@ -577,7 +588,13 @@ document.addEventListener('DOMContentLoaded', () => {
     cityFileStatus.classList.remove('active');
     dashboardGrid.style.display = 'none';
     resultsSection.style.display = 'none';
+    document.getElementById('uploadFormContainer').style.display = 'block';
+    document.getElementById('chartContainer').style.display = 'none';
     tableBody.innerHTML = '';
+    
+    // Clear state in cache
+    moduleState[currentMode].reconciliationData = null;
+    moduleState[currentMode].batchData = null;
   });
 
   // Funções Auxiliares de Progresso Fluído Contínuo e Formatação
@@ -763,8 +780,73 @@ document.addEventListener('DOMContentLoaded', () => {
 
     dashboardGrid.style.display = 'grid';
     resultsSection.style.display = 'block';
+    
+    document.getElementById('uploadFormContainer').style.display = 'none';
+    document.getElementById('chartContainer').style.display = 'flex';
+
+    renderChart(result.items);
 
     filterAndRenderTable();
+  }
+
+  function renderChart(items) {
+    const ctx = document.getElementById('accuracyChart').getContext('2d');
+    
+    const countMatched = items.filter(i => i.status === 'CONCILIADO').length;
+    const countDivergent = items.filter(i => i.status === 'DIVERGENTE').length;
+    const countErpOnly = items.filter(i => i.status === 'SOMENTE_ERP').length;
+    const countCityOnly = items.filter(i => i.status === 'SOMENTE_PREFEITURA').length;
+
+    if (accuracyChartInstance) {
+      accuracyChartInstance.destroy();
+    }
+
+    accuracyChartInstance = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Conciliado', 'Divergente', 'Apenas ERP', 'Apenas Prefeitura'],
+        datasets: [{
+          data: [countMatched, countDivergent, countErpOnly, countCityOnly],
+          backgroundColor: [
+            '#34d399', // status-success-text
+            '#f87171', // status-danger-text
+            '#fbbf24', // status-warning-text
+            '#f59e0b'  // status-warning-text darker
+          ],
+          borderWidth: 0,
+          hoverOffset: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '60%',
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+            titleFont: { family: 'Inter', size: 13 },
+            bodyFont: { family: 'Inter', size: 13 },
+            padding: 10,
+            cornerRadius: 8
+          }
+        }
+      }
+    });
+
+    // Custom Legend Rendering
+    const legendContainer = document.getElementById('customLegend');
+    const colors = ['#34d399', '#f87171', '#fbbf24', '#f59e0b'];
+    const labels = ['Conciliado', 'Divergente', 'Apenas ERP', 'Apenas Prefeitura'];
+    
+    legendContainer.innerHTML = labels.map((label, index) => `
+      <div class="legend-item">
+        <div class="legend-color" style="background-color: ${colors[index]}"></div>
+        <span>${label}</span>
+      </div>
+    `).join('');
   }
 
   function filterAndRenderTable() {
