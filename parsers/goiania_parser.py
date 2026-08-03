@@ -75,6 +75,7 @@ class GoianiaParser(BaseCityParser):
 
             idx_numero = None
             idx_valor = None
+            idx_valor_iss = None
             idx_natureza = None
             idx_tomador = None
 
@@ -83,8 +84,10 @@ class GoianiaParser(BaseCityParser):
                 h_norm = str(h).lower().replace('ã', 'a').replace('ç', 'c').replace('º', '').replace('nº', '').strip()
                 if (h_norm == 'n°' or 'n°' in h_norm or 'numero' in h_norm) and idx_numero is None and idx != 1:
                     idx_numero = idx
-                elif 'valor documento' in h_norm or ('valor' in h_norm and idx_valor is None):
+                elif 'valor documento' in h_norm or ('valor' in h_norm and 'imposto' not in h_norm and idx_valor is None):
                     idx_valor = idx
+                elif 'valor imposto' in h_norm or 'imposto' in h_norm:
+                    if idx_valor_iss is None: idx_valor_iss = idx
                 elif 'natureza' in h_norm:
                     idx_natureza = idx
                 elif 'tomador' in h_norm:
@@ -109,6 +112,14 @@ class GoianiaParser(BaseCityParser):
                 val = parse_val(raw_val)
                 if val <= 0: continue
 
+                val_iss = 0.0
+                if idx_valor_iss is not None and idx_valor_iss < len(row):
+                    raw_iss = row[idx_valor_iss].strip()
+                    if raw_iss:
+                        try:
+                            val_iss = float(raw_iss.replace('.', '').replace(',', '.'))
+                        except ValueError: pass
+
                 num_cell = row[idx_numero].strip() if idx_numero < len(row) else f"GYN-{idx_row+1}"
                 nf = str(int(num_cell)) if num_cell.isdigit() else num_cell
                 tomador = row[idx_tomador].strip() if idx_tomador is not None and idx_tomador < len(row) else ""
@@ -118,6 +129,7 @@ class GoianiaParser(BaseCityParser):
                     "linha": idx_row + 1,
                     "numero": nf,
                     "valor": val,
+                    "valor_iss": val_iss,
                     "raw_valor": raw_val,
                     "tomador": tomador,
                     "cidade": "Goiânia"
@@ -136,6 +148,7 @@ class GoianiaParser(BaseCityParser):
             headers = [sheet.cell(row=1, column=j).value for j in range(1, sheet.max_column+1)]
             idx_numero = None
             idx_valor = None
+            idx_valor_iss = None
             idx_natureza = None
             idx_tomador = None
 
@@ -144,8 +157,10 @@ class GoianiaParser(BaseCityParser):
                 h_norm = str(h).lower().replace('ã', 'a').replace('ç', 'c').replace('º', '').replace('nº', '').strip()
                 if (h_norm == 'n°' or 'n°' in h_norm or 'numero' in h_norm) and idx_numero is None:
                     idx_numero = idx
-                elif 'valor documento' in h_norm or ('valor' in h_norm and idx_valor is None):
+                elif 'valor documento' in h_norm or ('valor' in h_norm and 'imposto' not in h_norm and idx_valor is None):
                     idx_valor = idx
+                elif 'valor imposto' in h_norm or 'imposto' in h_norm:
+                    if idx_valor_iss is None: idx_valor_iss = idx
                 elif 'natureza' in h_norm:
                     idx_natureza = idx
                 elif 'tomador' in h_norm:
@@ -169,11 +184,21 @@ class GoianiaParser(BaseCityParser):
 
                 nf = str(int(num_cell)) if isinstance(num_cell, (int, float)) else str(num_cell).strip()
 
+                val_iss = 0.0
+                if idx_valor_iss is not None:
+                    iss_cell = sheet.cell(row=row_idx, column=idx_valor_iss+1).value
+                    if iss_cell is not None:
+                        try:
+                            val_iss = float(str(iss_cell).replace('.', '').replace(',', '.'))
+                        except ValueError:
+                            pass
+
                 records.append({
                     "id": f"GYN-{len(records)+1}",
                     "linha": row_idx,
                     "numero": nf,
                     "valor": val,
+                    "valor_iss": val_iss,
                     "raw_valor": str(val_cell),
                     "tomador": str(tomador_cell or ''),
                     "cidade": "Goiânia"
@@ -204,6 +229,16 @@ class GoianiaParser(BaseCityParser):
                                 try:
                                     val = float(base_calc.replace('.', '').replace(',', '.'))
                                     if val <= 0: continue
+
+                                    val_iss = 0.0
+                                    if len(parts) >= 7:
+                                        iss_raw = parts[6].strip()
+                                        if iss_raw:
+                                            try:
+                                                val_iss = float(iss_raw.replace('.', '').replace(',', '.'))
+                                            except ValueError:
+                                                pass
+
                                     num_clean = str(int(numero))
                                     records.append({
                                         "id": f"GYN-{idx}",
@@ -212,6 +247,7 @@ class GoianiaParser(BaseCityParser):
                                         "serie": serie,
                                         "numero": num_clean,
                                         "valor": val,
+                                        "valor_iss": val_iss,
                                         "raw_valor": base_calc,
                                         "cidade": "Goiânia"
                                     })

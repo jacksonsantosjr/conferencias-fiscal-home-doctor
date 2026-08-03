@@ -73,11 +73,27 @@ class SaoLuisParser(BaseCityParser):
                                                 pass
 
                                     if val_nf and val_nf > 0:
+                                        val_iss = 0.0
+                                        found_val = False
+                                        for k in range(i, len(parts)):
+                                            p_tok = parts[k]
+                                            if ',' in p_tok and not p_tok.endswith('%'):
+                                                try:
+                                                    v = float(p_tok.replace('.', '').replace(',', '.'))
+                                                    if v > 0:
+                                                        if not found_val:
+                                                            found_val = True
+                                                        else:
+                                                            val_iss = v
+                                                except ValueError:
+                                                    pass
+
                                         records.append({
                                             "id": f"SL-{idx}",
                                             "pagina": page_idx + 1,
                                             "numero": num_nf,
                                             "valor": val_nf,
+                                            "valor_iss": val_iss,
                                             "raw_valor": str(val_nf),
                                             "cidade": "São Luís"
                                         })
@@ -97,6 +113,7 @@ class SaoLuisParser(BaseCityParser):
             headers = [sheet.cell(row=1, column=j).value for j in range(1, sheet.max_column+1)]
             idx_numero = None
             idx_valor = None
+            idx_valor_iss = None
             idx_cancelamento = None
             idx_tomador = None
 
@@ -107,6 +124,8 @@ class SaoLuisParser(BaseCityParser):
                     idx_numero = idx
                 elif 'vl. nf' in h_norm or 'valor nf' in h_norm or ('valor' in h_norm and idx_valor is None):
                     idx_valor = idx
+                elif 'vl. iss' in h_norm or 'iss' in h_norm:
+                    if idx_valor_iss is None: idx_valor_iss = idx
                 elif 'cancelamento' in h_norm or 'status' in h_norm:
                     idx_cancelamento = idx
                 elif 'tomador' in h_norm:
@@ -132,6 +151,16 @@ class SaoLuisParser(BaseCityParser):
                     val = float(val_str.replace('.', '').replace(',', '.')) if ',' in val_str else float(val_str)
                     if val <= 0: continue
 
+                    val_iss = 0.0
+                    if idx_valor_iss is not None:
+                        iss_cell = sheet.cell(row=row_idx, column=idx_valor_iss+1).value
+                        if iss_cell is not None:
+                            try:
+                                iss_str = str(iss_cell).replace('R$', '').replace(' ', '').replace('\xa0', '').strip()
+                                if iss_str:
+                                    val_iss = float(iss_str.replace('.', '').replace(',', '.')) if ',' in iss_str else float(iss_str)
+                            except ValueError: pass
+
                     nf = str(int(num_cell)) if isinstance(num_cell, (int, float)) else str(num_cell).strip()
 
                     records.append({
@@ -139,6 +168,7 @@ class SaoLuisParser(BaseCityParser):
                         "linha": row_idx,
                         "numero": nf,
                         "valor": val,
+                        "valor_iss": val_iss,
                         "raw_valor": str(val_cell),
                         "tomador": str(tomador_cell or ''),
                         "cidade": "São Luís"
@@ -162,12 +192,15 @@ class SaoLuisParser(BaseCityParser):
 
             idx_numero = None
             idx_valor = None
+            idx_valor_iss = None
             idx_cancelamento = None
 
             for idx, h in enumerate(headers):
                 h_norm = h.lower().replace('ã', 'a').replace('ç', 'c').strip()
                 if 'numero' in h_norm and idx_numero is None: idx_numero = idx
                 elif 'vl. nf' in h_norm or 'valor nf' in h_norm or ('valor' in h_norm and idx_valor is None): idx_valor = idx
+                elif 'vl. iss' in h_norm or 'iss' in h_norm:
+                    if idx_valor_iss is None: idx_valor_iss = idx
                 elif 'cancelamento' in h_norm or 'status' in h_norm: idx_cancelamento = idx
 
             if idx_numero is None: idx_numero = 0
@@ -183,6 +216,17 @@ class SaoLuisParser(BaseCityParser):
                 try:
                     val = float(raw_val.replace('.', '').replace(',', '.')) if ',' in raw_val else float(raw_val)
                     if val <= 0: continue
+                    
+                    val_iss = 0.0
+                    if idx_valor_iss is not None and idx_valor_iss < len(row):
+                        raw_iss = row[idx_valor_iss].strip()
+                        if raw_iss:
+                            try:
+                                iss_str = raw_iss.replace('R$', '').replace(' ', '').replace('\xa0', '').strip()
+                                if iss_str:
+                                    val_iss = float(iss_str.replace('.', '').replace(',', '.')) if ',' in iss_str else float(iss_str)
+                            except ValueError: pass
+                    
                     num_cell = row[idx_numero].strip() if idx_numero < len(row) else f"SL-{idx_row+1}"
                     nf = str(int(num_cell)) if num_cell.isdigit() else num_cell
 
@@ -191,6 +235,7 @@ class SaoLuisParser(BaseCityParser):
                         "linha": idx_row + 1,
                         "numero": nf,
                         "valor": val,
+                        "valor_iss": val_iss,
                         "raw_valor": raw_val,
                         "cidade": "São Luís"
                     })

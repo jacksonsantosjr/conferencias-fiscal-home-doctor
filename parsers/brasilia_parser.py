@@ -57,18 +57,28 @@ class BrasiliaParser(BaseCityParser):
                                     if val <= 0:
                                         continue
 
-                                    num_clean = str(int(numero))
+                                        val_iss = 0.0
+                                        if len(parts) >= 7:
+                                            iss_raw = parts[6].strip()
+                                            if iss_raw:
+                                                try:
+                                                    val_iss = float(iss_raw.replace('.', '').replace(',', '.'))
+                                                except ValueError:
+                                                    pass
 
-                                    records.append({
-                                        "id": f"DF-{idx}",
-                                        "pagina": page_idx + 1,
-                                        "dia": dia,
-                                        "serie": serie,
-                                        "numero": num_clean,
-                                        "valor": val,
-                                        "raw_valor": base_calc,
-                                        "cidade": "Brasília"
-                                    })
+                                        num_clean = str(int(numero))
+
+                                        records.append({
+                                            "id": f"DF-{idx}",
+                                            "pagina": page_idx + 1,
+                                            "dia": dia,
+                                            "serie": serie,
+                                            "numero": num_clean,
+                                            "valor": val,
+                                            "valor_iss": val_iss,
+                                            "raw_valor": base_calc,
+                                            "cidade": "Brasília"
+                                        })
                                     idx += 1
                                 except ValueError:
                                     pass
@@ -96,6 +106,7 @@ class BrasiliaParser(BaseCityParser):
 
             idx_natureza = None
             idx_valor = None
+            idx_valor_iss = None
             idx_numero = None
             idx_cnpj = None
 
@@ -103,8 +114,10 @@ class BrasiliaParser(BaseCityParser):
                 h_norm = h.lower().replace('ã', 'a').replace('ç', 'c').strip()
                 if 'natureza' in h_norm:
                     idx_natureza = idx
-                elif 'valor documento' in h_norm or ('valor' in h_norm and idx_valor is None):
+                elif 'valor documento' in h_norm or ('valor' in h_norm and 'imposto' not in h_norm and idx_valor is None):
                     idx_valor = idx
+                elif 'valor imposto' in h_norm or 'imposto' in h_norm:
+                    if idx_valor_iss is None: idx_valor_iss = idx
                 elif h.strip() in ['Nº', 'N°', 'NÂ°', 'NÂº', 'Numero', 'Número'] or ('n' in h_norm and 'doc' not in h_norm and idx_numero is None):
                     if idx_numero is None: idx_numero = idx
                 elif 'cpf' in h_norm or 'cnpj' in h_norm:
@@ -131,6 +144,14 @@ class BrasiliaParser(BaseCityParser):
                     val = float(raw_val.replace('.', '').replace(',', '.'))
                     if val <= 0: continue
 
+                    val_iss = 0.0
+                    if idx_valor_iss is not None and idx_valor_iss < len(row):
+                        raw_iss = row[idx_valor_iss].strip()
+                        if raw_iss:
+                            try:
+                                val_iss = float(raw_iss.replace('.', '').replace(',', '.'))
+                            except ValueError: pass
+
                     nf = row[idx_numero].strip() if idx_numero < len(row) else f"DF-{idx_row+1}"
                     cnpj = row[idx_cnpj].strip() if idx_cnpj < len(row) else ''
 
@@ -139,6 +160,7 @@ class BrasiliaParser(BaseCityParser):
                         "linha": idx_row + 1,
                         "numero": nf,
                         "valor": val,
+                        "valor_iss": val_iss,
                         "raw_valor": raw_val,
                         "cnpj_tomador": cnpj,
                         "cidade": "Brasília"

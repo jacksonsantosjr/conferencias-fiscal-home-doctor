@@ -101,17 +101,25 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         if self.path == "/api/reconcile-demo":
-            self.handle_demo_reconcile()
+            self.handle_demo_reconcile(mode="faturamento")
         elif self.path == "/api/reconcile":
-            self.handle_upload_reconcile()
+            self.handle_upload_reconcile(mode="faturamento")
         elif self.path == "/api/reconcile-batch-demo":
-            self.handle_batch_demo_reconcile()
+            self.handle_batch_demo_reconcile(mode="faturamento")
         elif self.path == "/api/reconcile-batch":
-            self.handle_batch_upload_reconcile()
+            self.handle_batch_upload_reconcile(mode="faturamento")
+        elif self.path == "/api/reconcile-iss-demo":
+            self.handle_demo_reconcile(mode="iss")
+        elif self.path == "/api/reconcile-iss":
+            self.handle_upload_reconcile(mode="iss")
+        elif self.path == "/api/reconcile-iss-batch-demo":
+            self.handle_batch_demo_reconcile(mode="iss")
+        elif self.path == "/api/reconcile-iss-batch":
+            self.handle_batch_upload_reconcile(mode="iss")
         else:
             self.send_error(404, "Endpoint não encontrado")
 
-    def handle_batch_demo_reconcile(self):
+    def handle_batch_demo_reconcile(self, mode="faturamento"):
         try:
             def process_single_city_demo(cfg):
                 cname = cfg["name"]
@@ -130,6 +138,13 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
 
                 erp_items = erp_parser.parse_file(erp_p)
                 city_items = c_parser_cls().parse(city_p)
+                
+                if mode == "iss":
+                    for item in erp_items:
+                        item["valor"] = item.get("valor_iss", 0.0)
+                    for item in city_items:
+                        item["valor"] = item.get("valor_iss", 0.0)
+
                 rec_res = engine.reconcile(erp_items, city_items)
 
                 resumo = rec_res.get("resumo", {})
@@ -177,7 +192,7 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             self.send_json_response({"success": False, "error": f"Erro ao processar lote de demonstração: {str(e)}"})
 
-    def handle_batch_upload_reconcile(self):
+    def handle_batch_upload_reconcile(self, mode="faturamento"):
         try:
             content_type = self.headers.get('content-type', '')
             if 'multipart/form-data' not in content_type:
@@ -302,6 +317,12 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                 if not erp_items or not city_items:
                     return None
 
+                if mode == "iss":
+                    for item in erp_items:
+                        item["valor"] = item.get("valor_iss", 0.0)
+                    for item in city_items:
+                        item["valor"] = item.get("valor_iss", 0.0)
+
                 rec_res = engine.reconcile(erp_items, city_items)
                 resumo = rec_res.get("resumo", {})
                 is_divergent = resumo.get("divergentes_qtd", 0) > 0 or resumo.get("somente_erp_qtd", 0) > 0 or resumo.get("somente_prefeitura_qtd", 0) > 0
@@ -348,7 +369,7 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             self.send_json_response({"success": False, "error": f"Erro ao processar arquivo .ZIP em lote: {str(e)}"})
 
-    def handle_demo_reconcile(self):
+    def handle_demo_reconcile(self, mode="faturamento"):
         try:
             content_length = int(self.headers.get('content-length', 0))
             city = "Recife"
@@ -487,13 +508,19 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
             erp_items = erp_parser.parse_file(erp_path)
             city_items = city_parser.parse(city_path)
 
+            if mode == "iss":
+                for item in erp_items:
+                    item["valor"] = item.get("valor_iss", 0.0)
+                for item in city_items:
+                    item["valor"] = item.get("valor_iss", 0.0)
+
             result = engine.reconcile(erp_items, city_items)
             self.send_json_response({"success": True, "result": result})
 
         except Exception as e:
             self.send_json_response({"success": False, "error": f"Erro no processamento da demonstração: {str(e)}"})
 
-    def handle_upload_reconcile(self):
+    def handle_upload_reconcile(self, mode="faturamento"):
         try:
             content_type = self.headers.get('content-type', '')
             if 'multipart/form-data' not in content_type:
@@ -594,6 +621,13 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             engine = ReconciliationEngine(tolerance=0.04)
+
+            if mode == "iss":
+                for item in erp_items:
+                    item["valor"] = item.get("valor_iss", 0.0)
+                for item in city_items:
+                    item["valor"] = item.get("valor_iss", 0.0)
+
             result = engine.reconcile(erp_items, city_items)
             self.send_json_response({"success": True, "result": result})
 

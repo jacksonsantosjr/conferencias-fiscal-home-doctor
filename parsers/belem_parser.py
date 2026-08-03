@@ -50,6 +50,7 @@ class BelemParser(BaseCityParser):
             headers = [sheet.cell(row=1, column=j).value for j in range(1, sheet.max_column+1)]
             idx_numero = None
             idx_valor = None
+            idx_valor_iss = None
             idx_cancelamento = None
             idx_tomador = None
 
@@ -60,6 +61,8 @@ class BelemParser(BaseCityParser):
                     idx_numero = idx
                 elif 'valor servicos' in h_norm or ('valor' in h_norm and idx_valor is None):
                     idx_valor = idx
+                elif h_norm == 'iss' or 'issqn' in h_norm:
+                    if idx_valor_iss is None: idx_valor_iss = idx
                 elif 'cancelamento' in h_norm:
                     idx_cancelamento = idx
                 elif 'tomador - nome' in h_norm or ('tomador' in h_norm and idx_tomador is None):
@@ -85,11 +88,18 @@ class BelemParser(BaseCityParser):
 
                 nf = str(int(num_cell)) if isinstance(num_cell, (int, float)) else str(num_cell).strip()
 
+                val_iss = 0.0
+                if idx_valor_iss is not None:
+                    iss_cell = sheet.cell(row=row_idx, column=idx_valor_iss+1).value
+                    if iss_cell is not None:
+                        val_iss = parse_val(iss_cell)
+
                 records.append({
                     "id": f"BEL-{len(records)+1}",
                     "linha": row_idx,
                     "numero": nf,
                     "valor": val,
+                    "valor_iss": val_iss,
                     "raw_valor": str(val_cell),
                     "tomador": str(tomador_cell or ''),
                     "cidade": "Belém"
@@ -120,6 +130,16 @@ class BelemParser(BaseCityParser):
                                 try:
                                     val = float(base_calc.replace('.', '').replace(',', '.'))
                                     if val <= 0: continue
+
+                                    val_iss = 0.0
+                                    if len(parts) >= 7:
+                                        iss_raw = parts[6].strip()
+                                        if iss_raw:
+                                            try:
+                                                val_iss = float(iss_raw.replace('.', '').replace(',', '.'))
+                                            except ValueError:
+                                                pass
+
                                     num_clean = str(int(numero))
                                     records.append({
                                         "id": f"BEL-{idx}",
@@ -128,6 +148,7 @@ class BelemParser(BaseCityParser):
                                         "serie": serie,
                                         "numero": num_clean,
                                         "valor": val,
+                                        "valor_iss": val_iss,
                                         "raw_valor": base_calc,
                                         "cidade": "Belém"
                                     })
@@ -148,12 +169,15 @@ class BelemParser(BaseCityParser):
 
             idx_numero = None
             idx_valor = None
+            idx_valor_iss = None
             idx_cancelamento = None
 
             for idx, h in enumerate(headers):
                 h_norm = h.lower().replace('ã', 'a').replace('ç', 'c').strip()
                 if 'numero' in h_norm and idx_numero is None: idx_numero = idx
                 elif 'valor servicos' in h_norm or ('valor' in h_norm and idx_valor is None): idx_valor = idx
+                elif h_norm == 'iss' or 'issqn' in h_norm:
+                    if idx_valor_iss is None: idx_valor_iss = idx
                 elif 'cancelamento' in h_norm: idx_cancelamento = idx
 
             if idx_numero is None: idx_numero = 0
@@ -171,11 +195,16 @@ class BelemParser(BaseCityParser):
                 num_cell = row[idx_numero].strip() if idx_numero < len(row) else f"BEL-{idx_row+1}"
                 nf = str(int(num_cell)) if num_cell.isdigit() else num_cell
 
+                val_iss = 0.0
+                if idx_valor_iss is not None and idx_valor_iss < len(row):
+                    val_iss = parse_val(row[idx_valor_iss].strip())
+
                 records.append({
                     "id": f"BEL-{len(records)+1}",
                     "linha": idx_row + 1,
                     "numero": nf,
                     "valor": val,
+                    "valor_iss": val_iss,
                     "raw_valor": raw_val,
                     "cidade": "Belém"
                 })

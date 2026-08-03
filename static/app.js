@@ -67,6 +67,12 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentReconciliationData = null;
   let currentBatchData = null;
   let activeTab = 'all';
+  let currentMode = 'faturamento'; // 'faturamento' ou 'iss'
+
+  const moduleState = {
+    faturamento: { reconciliationData: null, batchData: null },
+    iss: { reconciliationData: null, batchData: null }
+  };
 
   // ========================================================
   // GERENCIAMENTO DA SIDEBAR RETRÁTIL (CND STYLE)
@@ -90,6 +96,39 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       navItems.forEach(i => i.classList.remove('active'));
       item.classList.add('active');
+
+      // Salva o estado atual antes de trocar
+      moduleState[currentMode].reconciliationData = currentReconciliationData;
+      moduleState[currentMode].batchData = currentBatchData;
+
+      const mod = item.getAttribute('data-module');
+      if (mod === 'iss-prestados') {
+        currentMode = 'iss';
+        document.getElementById('moduleTitle').textContent = 'Conferência ISS - Serviços Prestados';
+        document.getElementById('moduleSub').textContent = 'Auditoria do Imposto Devido (ERP) vs ISS Apurado (Prefeitura)';
+        document.querySelector('.upload-section h2').textContent = '🏛️ Importação dos Arquivos Fiscais (ISS)';
+        document.querySelector('.modal-title-group h3').textContent = 'Conferência de ISS em Lote';
+      } else {
+        currentMode = 'faturamento';
+        document.getElementById('moduleTitle').textContent = 'Conferência de Faturamento Fiscal';
+        document.getElementById('moduleSub').textContent = 'Automação e Auditoria de Notas Fiscais Emitidas (ERP vs Prefeituras)';
+        document.querySelector('.upload-section h2').textContent = '📁 Importação dos Arquivos Fiscais';
+        document.querySelector('.modal-title-group h3').textContent = 'Conferência de Faturamento em Lote';
+      }
+      
+      // Restaura o estado salvo do módulo escolhido
+      currentReconciliationData = moduleState[currentMode].reconciliationData;
+      currentBatchData = moduleState[currentMode].batchData;
+
+      if (currentReconciliationData) {
+        renderResults(currentReconciliationData);
+      } else {
+        dashboardGrid.style.display = 'none';
+        resultsSection.style.display = 'none';
+        tableBody.innerHTML = '';
+      }
+      
+      // Nota: Não chamamos mais btnResetAll.click() para preservar os arquivos selecionados
     });
   });
 
@@ -211,7 +250,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Demo Lote (Todas as 18 Prefeituras)
   btnBatchDemo.addEventListener('click', async () => {
-    runBatchAnalysis('/api/reconcile-batch-demo', null);
+    const endpoint = currentMode === 'iss' ? '/api/reconcile-iss-batch-demo' : '/api/reconcile-batch-demo';
+    runBatchAnalysis(endpoint, null);
   });
 
   // Upload Lote ZIP
@@ -222,7 +262,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const formData = new FormData();
     formData.append('zip_file', selectedZipFile);
-    runBatchAnalysis('/api/reconcile-batch', formData);
+    const endpoint = currentMode === 'iss' ? '/api/reconcile-iss-batch' : '/api/reconcile-batch';
+    runBatchAnalysis(endpoint, formData);
   });
 
   // Executa Análise em Lote com Animação Fluída Contínua de Progresso (0% a 100%)
@@ -389,9 +430,10 @@ document.addEventListener('DOMContentLoaded', () => {
     );
 
     try {
+      const endpoint = currentMode === 'iss' ? '/api/reconcile-iss-demo' : '/api/reconcile-demo';
       let response;
       try {
-        response = await fetch('/api/reconcile-demo', {
+        response = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ city: selectedCity })
@@ -399,7 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (firstErr) {
         console.warn('[Demo] 1ª tentativa falhou, retry...', firstErr);
         await new Promise(r => setTimeout(r, 500));
-        response = await fetch('/api/reconcile-demo', {
+        response = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ city: selectedCity })
@@ -467,14 +509,15 @@ document.addEventListener('DOMContentLoaded', () => {
       formData.append('city_file', selectedCityFile);
       formData.append('city', selectedCity);
 
+      const endpoint = currentMode === 'iss' ? '/api/reconcile-iss' : '/api/reconcile';
       let response;
       try {
-        response = await fetch('/api/reconcile', { method: 'POST', body: formData });
+        response = await fetch(endpoint, { method: 'POST', body: formData });
       } catch (firstErr) {
         console.warn('[Conferência] 1ª tentativa falhou, aguardando 500ms para retry...', firstErr);
         await new Promise(r => setTimeout(r, 500));
         try {
-          response = await fetch('/api/reconcile', { method: 'POST', body: formData });
+          response = await fetch(endpoint, { method: 'POST', body: formData });
         } catch (secondErr) {
           console.error('[Conferência] 2ª tentativa também falhou:', secondErr);
           if (activeProgressTimer) clearInterval(activeProgressTimer);

@@ -57,18 +57,28 @@ class CampinasParser(BaseCityParser):
                                     if val <= 0:
                                         continue
 
-                                    num_clean = str(int(numero))
+                                        val_iss = 0.0
+                                        if len(parts) >= 7:
+                                            iss_raw = parts[6].strip()
+                                            if iss_raw:
+                                                try:
+                                                    val_iss = float(iss_raw.replace('.', '').replace(',', '.'))
+                                                except ValueError:
+                                                    pass
 
-                                    records.append({
-                                        "id": f"CAM-{idx}",
-                                        "pagina": page_idx + 1,
-                                        "dia": dia,
-                                        "serie": serie,
-                                        "numero": num_clean,
-                                        "valor": val,
-                                        "raw_valor": base_calc,
-                                        "cidade": "Campinas"
-                                    })
+                                        num_clean = str(int(numero))
+
+                                        records.append({
+                                            "id": f"CAM-{idx}",
+                                            "pagina": page_idx + 1,
+                                            "dia": dia,
+                                            "serie": serie,
+                                            "numero": num_clean,
+                                            "valor": val,
+                                            "valor_iss": val_iss,
+                                            "raw_valor": base_calc,
+                                            "cidade": "Campinas"
+                                        })
                                     idx += 1
                                 except ValueError:
                                     pass
@@ -89,6 +99,7 @@ class CampinasParser(BaseCityParser):
 
             idx_situacao = None
             idx_valor = None
+            idx_valor_iss = None
             idx_numero = None
             idx_tomador = None
 
@@ -96,8 +107,10 @@ class CampinasParser(BaseCityParser):
                 h_norm = h.lower().replace('ã', 'a').replace('ç', 'c').strip()
                 if 'situa' in h_norm:
                     idx_situacao = idx
-                elif 'valor servi' in h_norm or 'base' in h_norm or ('valor' in h_norm and idx_valor is None):
+                elif 'valor servi' in h_norm or 'base' in h_norm or ('valor' in h_norm and 'iss' not in h_norm and idx_valor is None):
                     idx_valor = idx
+                elif 'valor iss' in h_norm or ('iss' in h_norm and idx_valor_iss is None):
+                    idx_valor_iss = idx
                 elif 'nr. nf' in h_norm or 'nf' in h_norm or 'numero' in h_norm:
                     if idx_numero is None: idx_numero = idx
                 elif 'nome empresarial' in h_norm or 'razao' in h_norm or 'tomador' in h_norm:
@@ -123,6 +136,14 @@ class CampinasParser(BaseCityParser):
                     val = float(raw_val.replace('.', '').replace(',', '.'))
                     if val <= 0: continue
                     
+                    val_iss = 0.0
+                    if idx_valor_iss is not None and idx_valor_iss < len(row):
+                        raw_iss = row[idx_valor_iss].strip()
+                        if raw_iss:
+                            try:
+                                val_iss = float(raw_iss.replace('.', '').replace(',', '.'))
+                            except ValueError: pass
+
                     num = row[idx_numero].strip() if idx_numero < len(row) else f"CAM-{idx_row+1}"
                     tomador = row[idx_tomador].strip() if idx_tomador < len(row) else ""
 
@@ -131,6 +152,7 @@ class CampinasParser(BaseCityParser):
                         "linha": idx_row + 1,
                         "numero": num,
                         "valor": val,
+                        "valor_iss": val_iss,
                         "raw_valor": raw_val,
                         "tomador": tomador,
                         "cidade": "Campinas"

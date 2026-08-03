@@ -63,6 +63,15 @@ class SantosParser(BaseCityParser):
                                     if val <= 0:
                                         continue
 
+                                    val_iss = 0.0
+                                    if len(parts) >= 7:
+                                        iss_raw = parts[6].strip()
+                                        if iss_raw:
+                                            try:
+                                                val_iss = float(iss_raw.replace('.', '').replace(',', '.'))
+                                            except ValueError:
+                                                pass
+
                                     num_clean = str(int(numero))
 
                                     records.append({
@@ -72,6 +81,7 @@ class SantosParser(BaseCityParser):
                                         "serie": serie,
                                         "numero": num_clean,
                                         "valor": val,
+                                        "valor_iss": val_iss,
                                         "raw_valor": base_calc,
                                         "cidade": "Santos"
                                     })
@@ -92,6 +102,7 @@ class SantosParser(BaseCityParser):
             headers = [sheet.cell(row=1, column=j).value for j in range(1, sheet.max_column+1)]
             idx_escrituracao = None
             idx_valor = None
+            idx_valor_iss = None
             idx_nfs = None
             idx_tomador = None
 
@@ -102,6 +113,8 @@ class SantosParser(BaseCityParser):
                     idx_escrituracao = idx
                 elif 'valor do servico' in h_norm or ('base' in h_norm and idx_valor is None):
                     idx_valor = idx
+                elif 'issqn' in h_norm or 'iss' in h_norm:
+                    if idx_valor_iss is None: idx_valor_iss = idx
                 elif 'nfs' in h_norm and idx_nfs is None:
                     idx_nfs = idx
                 elif 'nome/razao social' in h_norm or ('razao' in h_norm and idx_tomador is None):
@@ -127,6 +140,16 @@ class SantosParser(BaseCityParser):
                     val = float(val_cell)
                     if val <= 0: continue
 
+                    val_iss = 0.0
+                    if idx_valor_iss is not None:
+                        iss_cell = sheet.cell(row=row_idx, column=idx_valor_iss+1).value
+                        if iss_cell is not None:
+                            try:
+                                iss_str = str(iss_cell).replace('R$', '').replace(' ', '').replace('\xa0', '').strip()
+                                if iss_str:
+                                    val_iss = float(iss_str.replace('.', '').replace(',', '.'))
+                            except ValueError: pass
+
                     nfs = str(int(nfs_cell)) if isinstance(nfs_cell, (int, float)) else str(nfs_cell)
 
                     records.append({
@@ -134,6 +157,7 @@ class SantosParser(BaseCityParser):
                         "linha": row_idx,
                         "numero": nfs,
                         "valor": val,
+                        "valor_iss": val_iss,
                         "raw_valor": str(val_cell),
                         "tomador": str(tomador_cell or ''),
                         "cidade": "Santos"
@@ -157,6 +181,7 @@ class SantosParser(BaseCityParser):
 
             idx_escrituracao = None
             idx_valor = None
+            idx_valor_iss = None
             idx_nfs = None
 
             for idx, h in enumerate(headers):
@@ -165,6 +190,8 @@ class SantosParser(BaseCityParser):
                     idx_escrituracao = idx
                 elif 'valor do servico' in h_norm or ('base' in h_norm and idx_valor is None):
                     idx_valor = idx
+                elif 'issqn' in h_norm or 'iss' in h_norm:
+                    if idx_valor_iss is None: idx_valor_iss = idx
                 elif 'nfs' in h_norm and idx_nfs is None:
                     idx_nfs = idx
 
@@ -187,6 +214,16 @@ class SantosParser(BaseCityParser):
                     val = float(raw_val.replace('.', '').replace(',', '.'))
                     if val <= 0: continue
                     
+                    val_iss = 0.0
+                    if idx_valor_iss is not None and idx_valor_iss < len(row):
+                        raw_iss = row[idx_valor_iss].strip()
+                        if raw_iss:
+                            try:
+                                iss_str = raw_iss.replace('R$', '').replace(' ', '').replace('\xa0', '').strip()
+                                if iss_str:
+                                    val_iss = float(iss_str.replace('.', '').replace(',', '.'))
+                            except ValueError: pass
+                    
                     num = row[idx_nfs].strip() if idx_nfs < len(row) else f"SAN-{idx_row+1}"
 
                     records.append({
@@ -194,6 +231,7 @@ class SantosParser(BaseCityParser):
                         "linha": idx_row + 1,
                         "numero": num,
                         "valor": val,
+                        "valor_iss": val_iss,
                         "raw_valor": raw_val,
                         "cidade": "Santos"
                     })

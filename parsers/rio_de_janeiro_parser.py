@@ -54,6 +54,15 @@ class RioDeJaneiroParser(BaseCityParser):
                                     if val <= 0:
                                         continue
 
+                                    val_iss = 0.0
+                                    if len(parts) >= 7:
+                                        iss_raw = parts[6].strip()
+                                        if iss_raw:
+                                            try:
+                                                val_iss = float(iss_raw.replace('.', '').replace(',', '.'))
+                                            except ValueError:
+                                                pass
+
                                     num_clean = str(int(numero))
 
                                     records.append({
@@ -63,6 +72,7 @@ class RioDeJaneiroParser(BaseCityParser):
                                         "serie": serie,
                                         "numero": num_clean,
                                         "valor": val,
+                                        "valor_iss": val_iss,
                                         "raw_valor": base_calc,
                                         "cidade": "Rio de Janeiro"
                                     })
@@ -83,6 +93,7 @@ class RioDeJaneiroParser(BaseCityParser):
             headers = [sheet.cell(row=1, column=j).value for j in range(1, sheet.max_column+1)]
             idx_numero = None
             idx_valor = None
+            idx_valor_iss = None
             idx_cancelamento = None
             idx_tomador = None
 
@@ -93,6 +104,8 @@ class RioDeJaneiroParser(BaseCityParser):
                     idx_numero = idx
                 elif 'valor servicos' in h_norm or ('valor' in h_norm and idx_valor is None):
                     idx_valor = idx
+                elif h_norm == 'iss' or 'issqn' in h_norm:
+                    if idx_valor_iss is None: idx_valor_iss = idx
                 elif 'cancelamento' in h_norm:
                     idx_cancelamento = idx
                 elif 'tomador - nome' in h_norm or ('tomador' in h_norm and idx_tomador is None):
@@ -120,6 +133,17 @@ class RioDeJaneiroParser(BaseCityParser):
                     val = float(val_str.replace('.', '').replace(',', '.'))
                     if val <= 0: continue
 
+                    val_iss = 0.0
+                    if idx_valor_iss is not None:
+                        iss_cell = sheet.cell(row=row_idx, column=idx_valor_iss+1).value
+                        if iss_cell is not None:
+                            iss_str = str(iss_cell).replace('R$', '').replace(' ', '').replace('\xa0', '').strip()
+                            if iss_str:
+                                try:
+                                    val_iss = float(iss_str.replace('.', '').replace(',', '.'))
+                                except ValueError:
+                                    pass
+
                     nf = str(int(num_cell)) if isinstance(num_cell, (int, float)) else str(num_cell).strip()
 
                     records.append({
@@ -127,6 +151,7 @@ class RioDeJaneiroParser(BaseCityParser):
                         "linha": row_idx,
                         "numero": nf,
                         "valor": val,
+                        "valor_iss": val_iss,
                         "raw_valor": str(val_cell),
                         "tomador": str(tomador_cell or ''),
                         "cidade": "Rio de Janeiro"
@@ -150,6 +175,7 @@ class RioDeJaneiroParser(BaseCityParser):
 
             idx_numero = None
             idx_valor = None
+            idx_valor_iss = None
             idx_cancelamento = None
 
             for idx, h in enumerate(headers):
@@ -158,6 +184,8 @@ class RioDeJaneiroParser(BaseCityParser):
                     idx_numero = idx
                 elif 'valor servicos' in h_norm or ('valor' in h_norm and idx_valor is None):
                     idx_valor = idx
+                elif h_norm == 'iss' or 'issqn' in h_norm:
+                    if idx_valor_iss is None: idx_valor_iss = idx
                 elif 'cancelamento' in h_norm:
                     idx_cancelamento = idx
 
@@ -178,6 +206,16 @@ class RioDeJaneiroParser(BaseCityParser):
                 try:
                     val = float(val_str.replace('.', '').replace(',', '.'))
                     if val <= 0: continue
+                    
+                    val_iss = 0.0
+                    if idx_valor_iss is not None and idx_valor_iss < len(row):
+                        raw_iss = row[idx_valor_iss].strip()
+                        iss_str = raw_iss.replace('R$', '').replace(' ', '').replace('\xa0', '').strip()
+                        if iss_str:
+                            try:
+                                val_iss = float(iss_str.replace('.', '').replace(',', '.'))
+                            except ValueError:
+                                pass
 
                     num_cell = row[idx_numero].strip() if idx_numero < len(row) else f"RJ-{idx_row+1}"
                     nf = str(int(num_cell)) if num_cell.isdigit() else num_cell
@@ -187,6 +225,7 @@ class RioDeJaneiroParser(BaseCityParser):
                         "linha": idx_row + 1,
                         "numero": nf,
                         "valor": val,
+                        "valor_iss": val_iss,
                         "raw_valor": raw_val,
                         "cidade": "Rio de Janeiro"
                     })

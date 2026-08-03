@@ -25,6 +25,7 @@ class ERPParser:
 
             if nf in grouped:
                 grouped[nf]["valor"] = round(grouped[nf]["valor"] + item["valor"], 2)
+                grouped[nf]["valor_iss"] = round(grouped[nf].get("valor_iss", 0) + item.get("valor_iss", 0), 2)
             else:
                 grouped[nf] = dict(item)
 
@@ -61,6 +62,7 @@ class ERPParser:
         idx_situacao = None
         idx_escrituracao = None
         idx_valor = None
+        idx_valor_iss = None
         idx_nf = None
         idx_rps = None
         idx_tomador = None
@@ -81,6 +83,8 @@ class ERPParser:
                         idx_escrituracao = idx
                     elif 'situa' in h_norm:
                         if idx_situacao is None: idx_situacao = idx
+                    elif 'imposto devido' in h_norm or ('imposto' in h_norm and 'retido' not in h_norm and idx_valor_iss is None):
+                        idx_valor_iss = idx
                     elif 'valor servi' in h_norm or 'valor dos servi' in h_norm or 'valor do servico' in h_norm or ('base' in h_norm and idx_valor is None) or ('valor' in h_norm and idx_valor is None):
                         idx_valor = idx
                     elif 'nr. nf' in h_norm or 'nfs' in h_norm or 'nota' in h_norm:
@@ -131,6 +135,16 @@ class ERPParser:
             if val is None or val <= 0:
                 continue
 
+            # Extração do valor de ISS (IMPOSTO DEVIDO)
+            val_iss = 0.0
+            if idx_valor_iss is not None and idx_valor_iss < len(row):
+                raw_iss = row[idx_valor_iss].strip()
+                if raw_iss:
+                    try:
+                        val_iss = float(raw_iss.replace('.', '').replace(',', '.'))
+                    except ValueError:
+                        pass
+
             nf_num = row[idx_nf].strip() if (idx_nf is not None and idx_nf < len(row)) else (row[1].strip() if len(row) > 1 else "")
             rps_num = row[idx_rps].strip() if (idx_rps is not None and idx_rps < len(row)) else (row[2].strip() if len(row) > 2 else "")
             tomador = row[idx_tomador].strip() if (idx_tomador is not None and idx_tomador < len(row)) else (row[7].strip() if len(row) > 7 else "")
@@ -145,6 +159,7 @@ class ERPParser:
                 "nfs_nac": nf_num,
                 "rps": rps_num,
                 "valor": val,
+                "valor_iss": val_iss,
                 "raw_valor": raw_val,
                 "tomador": tomador,
                 "cnpj_tomador": "",
@@ -163,6 +178,7 @@ class ERPParser:
             idx_escrituracao = None
             idx_situacao = None
             idx_valor = None
+            idx_valor_iss = None
             idx_nfs = None
             idx_tomador = None
 
@@ -173,6 +189,8 @@ class ERPParser:
                     idx_escrituracao = idx
                 elif 'situacao' in h_norm:
                     if idx_situacao is None: idx_situacao = idx
+                elif 'imposto devido' in h_norm or ('imposto' in h_norm and 'retido' not in h_norm and idx_valor_iss is None):
+                    idx_valor_iss = idx
                 elif 'valor do servico' in h_norm or 'valor dos servi' in h_norm or ('base' in h_norm and idx_valor is None):
                     idx_valor = idx
                 elif 'nfs' in h_norm or 'nota' in h_norm or 'nr. nf' in h_norm:
@@ -205,6 +223,16 @@ class ERPParser:
 
                     nfs = str(int(nfs_cell)) if isinstance(nfs_cell, (int, float)) else str(nfs_cell)
 
+                    # Extração do valor de ISS (IMPOSTO DEVIDO)
+                    val_iss = 0.0
+                    if idx_valor_iss is not None:
+                        iss_cell = sheet.cell(row=row_idx, column=idx_valor_iss+1).value
+                        if iss_cell is not None:
+                            try:
+                                val_iss = float(iss_cell)
+                            except (ValueError, TypeError):
+                                pass
+
                     records.append({
                         "id": f"ERP-{len(records)+1}",
                         "linha_erp": row_idx,
@@ -212,6 +240,7 @@ class ERPParser:
                         "nfs_nac": nfs,
                         "rps": "",
                         "valor": val,
+                        "valor_iss": val_iss,
                         "raw_valor": str(val_cell),
                         "tomador": str(tomador_cell or ''),
                         "cnpj_tomador": "",
@@ -245,6 +274,16 @@ class ERPParser:
                                     try:
                                         val = float(base_calc.replace('.', '').replace(',', '.'))
                                         if val <= 0: continue
+
+                                        # Extração do IMPOSTO DEVIDO (parts[6]) para valor_iss
+                                        val_iss = 0.0
+                                        if len(parts) >= 7:
+                                            iss_raw = parts[6].strip()
+                                            if iss_raw:
+                                                try:
+                                                    val_iss = float(iss_raw.replace('.', '').replace(',', '.'))
+                                                except ValueError:
+                                                    pass
                                         
                                         num_clean = str(int(numero))
                                         records.append({
@@ -254,6 +293,7 @@ class ERPParser:
                                             "nfs_nac": num_clean,
                                             "rps": "",
                                             "valor": val,
+                                            "valor_iss": val_iss,
                                             "raw_valor": base_calc,
                                             "tomador": "Relatório ERP (PDF)",
                                             "cnpj_tomador": "",
@@ -275,6 +315,7 @@ class ERPParser:
                                             "nfs_nac": "",
                                             "rps": "",
                                             "valor": val,
+                                            "valor_iss": 0.0,
                                             "raw_valor": p,
                                             "tomador": "Relatório ERP (PDF)",
                                             "cnpj_tomador": "",

@@ -62,6 +62,15 @@ class SaoJoseDosCamposParser(BaseCityParser):
                                     if val <= 0:
                                         continue
 
+                                    val_iss = 0.0
+                                    if len(parts) >= 6:
+                                        iss_raw = parts[5].strip()
+                                        if iss_raw:
+                                            try:
+                                                val_iss = float(iss_raw.replace('.', '').replace(',', '.'))
+                                            except ValueError:
+                                                pass
+
                                     records.append({
                                         "id": f"SJC-{idx}",
                                         "pagina": page_idx + 1,
@@ -69,6 +78,7 @@ class SaoJoseDosCamposParser(BaseCityParser):
                                         "serie": serie,
                                         "numero": numero,
                                         "valor": val,
+                                        "valor_iss": val_iss,
                                         "raw_valor": base_calc,
                                         "cidade": "São José dos Campos"
                                     })
@@ -96,6 +106,7 @@ class SaoJoseDosCamposParser(BaseCityParser):
 
             idx_situacao = None
             idx_valor = None
+            idx_valor_iss = None
             idx_numero = None
 
             for idx, h in enumerate(headers):
@@ -104,6 +115,8 @@ class SaoJoseDosCamposParser(BaseCityParser):
                     idx_situacao = idx
                 elif 'valor servi' in h_norm or ('valor' in h_norm and idx_valor is None):
                     idx_valor = idx
+                elif 'valor iss' in h_norm or 'iss' in h_norm:
+                    if idx_valor_iss is None: idx_valor_iss = idx
                 elif 'nr. nf' in h_norm or 'nf' in h_norm or 'numero' in h_norm:
                     if idx_numero is None: idx_numero = idx
 
@@ -126,6 +139,16 @@ class SaoJoseDosCamposParser(BaseCityParser):
                     val = float(raw_val.replace('.', '').replace(',', '.'))
                     if val <= 0: continue
                     
+                    val_iss = 0.0
+                    if idx_valor_iss is not None and idx_valor_iss < len(row):
+                        raw_iss = row[idx_valor_iss].strip()
+                        if raw_iss:
+                            try:
+                                iss_str = raw_iss.replace('R$', '').replace(' ', '').replace('\xa0', '').strip()
+                                if iss_str:
+                                    val_iss = float(iss_str.replace('.', '').replace(',', '.'))
+                            except ValueError: pass
+                    
                     num = row[idx_numero].strip() if idx_numero < len(row) else f"SJC-{idx_row+1}"
 
                     records.append({
@@ -133,6 +156,7 @@ class SaoJoseDosCamposParser(BaseCityParser):
                         "linha": idx_row + 1,
                         "numero": num,
                         "valor": val,
+                        "valor_iss": val_iss,
                         "raw_valor": raw_val,
                         "cidade": "São José dos Campos"
                     })

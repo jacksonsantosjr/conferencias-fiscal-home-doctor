@@ -65,24 +65,34 @@ class RecifeParser(BaseCityParser):
                             base_calc = parts[4]
 
                             if current_city == "Recife" and dia.isdigit() and numero.isdigit() and base_calc.replace('.', '').replace(',', '').isdigit():
-                                try:
-                                    val = float(base_calc.replace('.', '').replace(',', '.'))
-                                    if val <= 0:
-                                        continue
-                                        
-                                    records.append({
-                                        "id": f"REC-{idx}",
-                                        "pagina": page_idx + 1,
-                                        "dia": dia,
-                                        "serie": serie,
-                                        "numero": numero,
-                                        "valor": val,
-                                        "raw_valor": base_calc,
-                                        "cidade": "Recife"
-                                    })
-                                    idx += 1
-                                except ValueError:
-                                    pass
+                                    try:
+                                        val = float(base_calc.replace('.', '').replace(',', '.'))
+                                        if val <= 0:
+                                            continue
+                                            
+                                        val_iss = 0.0
+                                        if len(parts) >= 7:
+                                            iss_raw = parts[6].strip()
+                                            if iss_raw:
+                                                try:
+                                                    val_iss = float(iss_raw.replace('.', '').replace(',', '.'))
+                                                except ValueError:
+                                                    pass
+
+                                        records.append({
+                                            "id": f"REC-{idx}",
+                                            "pagina": page_idx + 1,
+                                            "dia": dia,
+                                            "serie": serie,
+                                            "numero": numero,
+                                            "valor": val,
+                                            "valor_iss": val_iss,
+                                            "raw_valor": base_calc,
+                                            "cidade": "Recife"
+                                        })
+                                        idx += 1
+                                    except ValueError:
+                                        pass
         except Exception:
             pass
 
