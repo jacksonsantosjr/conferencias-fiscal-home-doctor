@@ -882,7 +882,12 @@ document.addEventListener('DOMContentLoaded', () => {
         responsive: true,
         maintainAspectRatio: false,
         layout: {
-          padding: 70 // Aumentado bastante o espaço para rótulos externos não serem cortados
+          padding: {
+            top: 70, // Espaço maior no topo para os rótulos externos
+            bottom: 20,
+            left: 40,
+            right: 40
+          }
         },
         plugins: {
           legend: {
