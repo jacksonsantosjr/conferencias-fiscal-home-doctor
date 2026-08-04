@@ -587,6 +587,8 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
             erp_items = erp_parser.parse_file(file1_bytes)
             city_items = city_parser.parse(file2_bytes)
 
+            print(f"DEBUG app.py: erp_items={len(erp_items) if erp_items else 0}, city_items={len(city_items) if city_items else 0}, city_param={city_param}", flush=True)
+
             if not erp_items:
                 self.send_json_response({
                     "success": False,

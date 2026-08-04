@@ -78,6 +78,7 @@ class GoianiaParser(BaseCityParser):
             idx_valor_iss = None
             idx_natureza = None
             idx_tomador = None
+            idx_retido = None
 
             for idx, h in enumerate(headers):
                 if not h: continue
@@ -86,6 +87,8 @@ class GoianiaParser(BaseCityParser):
                     idx_numero = idx
                 elif 'valor documento' in h_norm or ('valor' in h_norm and 'imposto' not in h_norm and idx_valor is None):
                     idx_valor = idx
+                elif 'retido' in h_norm:
+                    idx_retido = idx
                 elif 'valor imposto' in h_norm or 'imposto' in h_norm:
                     if idx_valor_iss is None: idx_valor_iss = idx
                 elif 'natureza' in h_norm:
@@ -123,6 +126,10 @@ class GoianiaParser(BaseCityParser):
                 num_cell = row[idx_numero].strip() if idx_numero < len(row) else f"GYN-{idx_row+1}"
                 nf = str(int(num_cell)) if num_cell.isdigit() else num_cell
                 tomador = row[idx_tomador].strip() if idx_tomador is not None and idx_tomador < len(row) else ""
+                
+                retido_val = row[idx_retido].strip().lower() if idx_retido is not None and idx_retido < len(row) else ""
+                iss_ret_flag = "N" if ("nao" in retido_val or "não" in retido_val or "nã£o" in retido_val) else "S"
+                if not retido_val: iss_ret_flag = "N"
 
                 records.append({
                     "id": f"GYN-{len(records)+1}",
@@ -132,6 +139,7 @@ class GoianiaParser(BaseCityParser):
                     "valor_iss": val_iss,
                     "raw_valor": raw_val,
                     "tomador": tomador,
+                    "iss_retido": iss_ret_flag,
                     "cidade": "Goiânia"
                 })
         except Exception:
@@ -151,6 +159,7 @@ class GoianiaParser(BaseCityParser):
             idx_valor_iss = None
             idx_natureza = None
             idx_tomador = None
+            idx_retido = None
 
             for idx, h in enumerate(headers):
                 if not h: continue
@@ -159,6 +168,8 @@ class GoianiaParser(BaseCityParser):
                     idx_numero = idx
                 elif 'valor documento' in h_norm or ('valor' in h_norm and 'imposto' not in h_norm and idx_valor is None):
                     idx_valor = idx
+                elif 'retido' in h_norm:
+                    idx_retido = idx
                 elif 'valor imposto' in h_norm or 'imposto' in h_norm:
                     if idx_valor_iss is None: idx_valor_iss = idx
                 elif 'natureza' in h_norm:
@@ -192,6 +203,14 @@ class GoianiaParser(BaseCityParser):
                             val_iss = float(str(iss_cell).replace('.', '').replace(',', '.'))
                         except ValueError:
                             pass
+                            
+                retido_val = ""
+                if idx_retido is not None:
+                    r_cell = sheet.cell(row=row_idx, column=idx_retido+1).value
+                    if r_cell:
+                        retido_val = str(r_cell).strip().lower()
+                iss_ret_flag = "N" if ("nao" in retido_val or "não" in retido_val or "nã£o" in retido_val) else "S"
+                if not retido_val: iss_ret_flag = "N"
 
                 records.append({
                     "id": f"GYN-{len(records)+1}",
@@ -201,6 +220,7 @@ class GoianiaParser(BaseCityParser):
                     "valor_iss": val_iss,
                     "raw_valor": str(val_cell),
                     "tomador": str(tomador_cell or ''),
+                    "iss_retido": iss_ret_flag,
                     "cidade": "Goiânia"
                 })
         except Exception:
