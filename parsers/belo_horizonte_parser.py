@@ -51,13 +51,16 @@ class BeloHorizonteParser(BaseCityParser):
             idx_numero = None
             idx_valor = None
             idx_valor_iss = None
+            idx_iss_retido = None
             idx_cancelamento = None
             idx_tomador = None
 
             for idx, h in enumerate(headers):
                 if not h: continue
                 h_norm = str(h).lower().replace('ã', 'a').replace('ç', 'c').strip()
-                if 'numero' in h_norm and idx_numero is None:
+                if 'iss retido' in h_norm or 'retido' in h_norm:
+                    if idx_iss_retido is None: idx_iss_retido = idx
+                elif 'numero' in h_norm and idx_numero is None:
                     idx_numero = idx
                 elif 'valor servicos' in h_norm or ('valor' in h_norm and idx_valor is None):
                     idx_valor = idx
@@ -94,12 +97,21 @@ class BeloHorizonteParser(BaseCityParser):
                     if iss_cell is not None:
                         val_iss = parse_val(iss_cell)
 
+                iss_ret_str = "N"
+                if idx_iss_retido is not None:
+                    ret_cell = sheet.cell(row=row_idx, column=idx_iss_retido+1).value
+                    if ret_cell is not None:
+                        ret_val = str(ret_cell).strip().upper()
+                        if ret_val in ["SIM", "S", "TRUE", "1"]:
+                            iss_ret_str = "S"
+
                 records.append({
                     "id": f"BH-{len(records)+1}",
                     "linha": row_idx,
                     "numero": nf,
                     "valor": val,
                     "valor_iss": val_iss,
+                    "iss_retido": iss_ret_str,
                     "raw_valor": str(val_cell),
                     "tomador": str(tomador_cell or ''),
                     "cidade": "Belo Horizonte"
@@ -149,6 +161,7 @@ class BeloHorizonteParser(BaseCityParser):
                                         "numero": num_clean,
                                         "valor": val,
                                         "valor_iss": val_iss,
+                                        "iss_retido": "N",
                                         "raw_valor": base_calc,
                                         "cidade": "Belo Horizonte"
                                     })
@@ -170,11 +183,14 @@ class BeloHorizonteParser(BaseCityParser):
             idx_numero = None
             idx_valor = None
             idx_valor_iss = None
+            idx_iss_retido = None
             idx_cancelamento = None
 
             for idx, h in enumerate(headers):
                 h_norm = h.lower().replace('ã', 'a').replace('ç', 'c').strip()
-                if 'numero' in h_norm and idx_numero is None: idx_numero = idx
+                if 'iss retido' in h_norm or 'retido' in h_norm:
+                    if idx_iss_retido is None: idx_iss_retido = idx
+                elif 'numero' in h_norm and idx_numero is None: idx_numero = idx
                 elif 'valor servicos' in h_norm or ('valor' in h_norm and idx_valor is None): idx_valor = idx
                 elif h_norm == 'iss' or 'issqn' in h_norm:
                     if idx_valor_iss is None: idx_valor_iss = idx
@@ -199,12 +215,19 @@ class BeloHorizonteParser(BaseCityParser):
                 if idx_valor_iss is not None and idx_valor_iss < len(row):
                     val_iss = parse_val(row[idx_valor_iss].strip())
 
+                iss_ret_str = "N"
+                if idx_iss_retido is not None and idx_iss_retido < len(row):
+                    raw_ret = row[idx_iss_retido].strip().upper()
+                    if raw_ret in ["SIM", "S", "TRUE", "1"]:
+                        iss_ret_str = "S"
+
                 records.append({
                     "id": f"BH-{len(records)+1}",
                     "linha": idx_row + 1,
                     "numero": nf,
                     "valor": val,
                     "valor_iss": val_iss,
+                    "iss_retido": iss_ret_str,
                     "raw_valor": raw_val,
                     "cidade": "Belo Horizonte"
                 })

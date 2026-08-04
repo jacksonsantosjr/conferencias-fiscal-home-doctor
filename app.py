@@ -639,7 +639,7 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
 
                 city_items = [
                     item for item in city_items
-                    if item.get("iss_retido", "N").strip().upper() == "N" and item.get("valor_iss", 0.0) > 0
+                    if str(item.get("iss_retido", "N")).strip().upper() in ["N", "NÃO", "NAO", "NO"] and item.get("valor_iss", 0.0) > 0
                 ]
                 for item in city_items:
                     item["valor"] = item.get("valor_iss", 0.0)
