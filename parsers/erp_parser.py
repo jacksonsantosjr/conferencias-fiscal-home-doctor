@@ -17,19 +17,7 @@ class ERPParser:
         if not raw_records:
             return []
 
-        grouped = {}
-        for item in raw_records:
-            nf = str(item.get("nf_num", "")).strip()
-            if not nf:
-                nf = f"ROW-{len(grouped)+1}"
-
-            if nf in grouped:
-                grouped[nf]["valor"] = round(grouped[nf]["valor"] + item["valor"], 2)
-                grouped[nf]["valor_iss"] = round(grouped[nf].get("valor_iss", 0) + item.get("valor_iss", 0), 2)
-            else:
-                grouped[nf] = dict(item)
-
-        records = list(grouped.values())
+        records = list(raw_records)
 
         if len(records) > 1:
             total_demais = sum(r["valor"] for r in records[:-1])
@@ -285,7 +273,7 @@ class ERPParser:
                                                 except ValueError:
                                                     pass
                                         
-                                        num_clean = str(int(numero))
+                                        num_clean = str(numero).strip()
                                         records.append({
                                             "id": f"ERP-PDF-{idx}",
                                             "linha_erp": page_idx + 1,

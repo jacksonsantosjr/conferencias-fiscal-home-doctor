@@ -285,18 +285,7 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                         elif ('nfe_e' in fB_name or 'nota fiscal.csv' in fB_name or 'relatório de notas fiscais emitidas' in fB_name) and not ('nfe_e' in fA_name or 'nota fiscal.csv' in fA_name or 'relatório de notas fiscais emitidas' in fA_name):
                             file1_bytes, file2_bytes = fB_bytes, fA_bytes
                         else:
-                            e1 = erp_parser.parse_file(fA_bytes)
-                            c1 = c_parser_cls().parse(fB_bytes)
-                            score1 = len(e1) + len(c1)
-
-                            e2 = erp_parser.parse_file(fB_bytes)
-                            c2 = c_parser_cls().parse(fA_bytes)
-                            score2 = len(e2) + len(c2)
-
-                            if score1 >= score2:
-                                file1_bytes, file2_bytes = fA_bytes, fB_bytes
-                            else:
-                                file1_bytes, file2_bytes = fB_bytes, fA_bytes
+                            file1_bytes, file2_bytes = fA_bytes, fB_bytes
                     elif len(candidates) == 1:
                         file1_bytes = candidates[0][1]
                         file2_bytes = candidates[0][1]
@@ -307,12 +296,7 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                 erp_items = erp_parser.parse_file(file1_bytes)
                 city_items = c_parser_cls().parse(file2_bytes)
 
-                if not erp_items or not city_items:
-                    alt_erp = erp_parser.parse_file(file2_bytes)
-                    alt_city = c_parser_cls().parse(file1_bytes)
-                    if (alt_erp and alt_city) or (len(alt_erp) + len(alt_city) > len(erp_items) + len(city_items)):
-                        erp_items = alt_erp
-                        city_items = alt_city
+
 
                 if not erp_items or not city_items:
                     return None
@@ -599,19 +583,9 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
             else:
                 city_parser = RecifeParser()
 
-            # Pareamento Inteligente por Pontuação (Trata automaticamente caso o usuário inverta a ordem dos anexos)
-            e1 = erp_parser.parse_file(file1_bytes)
-            c1 = city_parser.parse(file2_bytes)
-            score1 = len(e1) + len(c1)
-
-            e2 = erp_parser.parse_file(file2_bytes)
-            c2 = city_parser.parse(file1_bytes)
-            score2 = len(e2) + len(c2)
-
-            if score2 > score1 + 5:
-                erp_items, city_items = e2, c2
-            else:
-                erp_items, city_items = e1, c1
+            # Processamento direto: ERP file1, Prefeitura file2 (sem inversão)
+            erp_items = erp_parser.parse_file(file1_bytes)
+            city_items = city_parser.parse(file2_bytes)
 
             if not erp_items:
                 self.send_json_response({
