@@ -50,40 +50,48 @@ class UberlandiaParser(BaseCityParser):
             headers = [sheet.cell(row=1, column=j).value for j in range(1, sheet.max_column+1)]
             idx_numero = None
             idx_valor = None
+            idx_valor_iss = None
             idx_cancelamento = None
             idx_tomador = None
+            idx_retido = None
 
             for idx, h in enumerate(headers):
                 if not h: continue
                 h_norm = str(h).lower().replace('ã', 'a').replace('ç', 'c').strip()
                 if 'numero' in h_norm and idx_numero is None:
                     idx_numero = idx
-                elif 'valor servicos' in h_norm or ('valor' in h_norm and idx_valor is None):
+                elif 'nfs' in h_norm and idx_numero is None:
+                    idx_numero = idx
+                elif 'valor servicos' in h_norm or 'vl. nf' in h_norm or 'valor nf' in h_norm or ('valor' in h_norm and idx_valor is None):
                     idx_valor = idx
-                elif h_norm == 'iss' or 'iss ' in h_norm or ' iss' in h_norm:
+                elif h_norm == 'iss' or 'issqn' in h_norm or 'vl. iss' in h_norm or 'valor iss' in h_norm:
                     if idx_valor_iss is None: idx_valor_iss = idx
-                elif 'cancelamento' in h_norm:
+                elif 'iss retido' in h_norm:
+                    idx_retido = idx
+                elif 'cancelamento' in h_norm or 'status' in h_norm:
                     idx_cancelamento = idx
-                elif 'tomador - nome' in h_norm or ('tomador' in h_norm and idx_tomador is None):
+                elif 'tomador' in h_norm:
                     idx_tomador = idx
 
             if idx_numero is None: idx_numero = 0
             if idx_valor is None: idx_valor = 8
             if idx_cancelamento is None: idx_cancelamento = 11
-            if idx_tomador is None: idx_tomador = 6
 
             for row_idx in range(2, sheet.max_row+1):
                 num_cell = sheet.cell(row=row_idx, column=idx_numero+1).value
                 val_cell = sheet.cell(row=row_idx, column=idx_valor+1).value
-                canc_cell = sheet.cell(row=row_idx, column=idx_cancelamento+1).value
-                tomador_cell = sheet.cell(row=row_idx, column=idx_tomador+1).value
+                canc_cell = sheet.cell(row=row_idx, column=idx_cancelamento+1).value if idx_cancelamento is not None else None
+                tomador_cell = sheet.cell(row=row_idx, column=idx_tomador+1).value if idx_tomador is not None else None
 
-                if canc_cell and str(canc_cell).strip():
+                # NFS-e Nacional cancelamento
+                if canc_cell and (str(canc_cell).strip().upper() in ['CANCELADA', 'C'] or str(canc_cell).strip() != ""):
                     continue
 
                 if val_cell is None: continue
                 val = parse_val(val_cell)
                 if val <= 0: continue
+
+                nf = str(int(num_cell)) if isinstance(num_cell, (int, float)) else str(num_cell).strip()
 
                 val_iss = 0.0
                 if idx_valor_iss is not None:
@@ -91,7 +99,13 @@ class UberlandiaParser(BaseCityParser):
                     if iss_cell is not None:
                         val_iss = parse_val(iss_cell)
 
-                nf = str(int(num_cell)) if isinstance(num_cell, (int, float)) else str(num_cell).strip()
+                retido_val = ""
+                if idx_retido is not None:
+                    r_cell = sheet.cell(row=row_idx, column=idx_retido+1).value
+                    if r_cell is not None:
+                        retido_val = str(r_cell).strip().lower()
+                
+                iss_ret_flag = "S" if retido_val == "sim" else "N"
 
                 records.append({
                     "id": f"UDI-{len(records)+1}",
@@ -101,6 +115,7 @@ class UberlandiaParser(BaseCityParser):
                     "valor_iss": val_iss,
                     "raw_valor": str(val_cell),
                     "tomador": str(tomador_cell or ''),
+                    "iss_retido": iss_ret_flag,
                     "cidade": "Uberlândia"
                 })
         except Exception:
@@ -159,44 +174,98 @@ class UberlandiaParser(BaseCityParser):
     def _parse_csv_bytes(self, csv_bytes: bytes) -> List[Dict[str, Any]]:
         records = []
         try:
-            content = csv_bytes.decode('utf-8', errors='replace')
-            lines = content.splitlines()
+            content_str = ""
+            for enc in ['latin1', 'utf-8', 'cp1252']:
+                try:
+                    content_str = csv_bytes.decode(enc)
+                    break
+                except Exception:
+                    pass
+
+            lines = content_str.splitlines()
+            if not lines: return []
+
             delimiter = ';' if any(';' in line for line in lines[:5]) else ','
             reader = csv.reader(lines, delimiter=delimiter)
-            headers = next(reader, None)
-            if not headers: return []
+            rows_list = list(reader)
+
+            headers = None
+            header_row_idx = -1
+
+            for idx, row in enumerate(rows_list):
+                row_str = " ".join(row).lower()
+                if 'valor' in row_str or 'nfs-e nacional' in row_str:
+                    headers = row
+                    header_row_idx = idx
+                    break
+
+            if not headers:
+                headers = rows_list[0] if rows_list else []
+                header_row_idx = 0
 
             idx_numero = None
             idx_valor = None
             idx_valor_iss = None
+            idx_tomador = None
+            idx_retido = None
             idx_cancelamento = None
 
             for idx, h in enumerate(headers):
-                h_norm = h.lower().replace('ã', 'a').replace('ç', 'c').strip()
-                if 'numero' in h_norm and idx_numero is None: idx_numero = idx
-                elif 'valor servicos' in h_norm or ('valor' in h_norm and idx_valor is None): idx_valor = idx
-                elif h_norm == 'iss' or 'iss ' in h_norm or ' iss' in h_norm:
+                if not h: continue
+                h_norm = str(h).lower().replace('ã', 'a').replace('ç', 'c').replace('º', '').replace('nº', '').strip()
+                if 'nfs-e nacional' in h_norm:
+                    idx_numero = idx
+                elif ('nota fiscal' in h_norm or 'nfs' in h_norm or 'nr. nf' in h_norm or 'numero' in h_norm) and idx_numero is None:
+                    idx_numero = idx
+                elif 'vl. nf' in h_norm or 'valor nf' in h_norm or ('valor' in h_norm and idx_valor is None):
+                    idx_valor = idx
+                elif 'iss retido' in h_norm:
+                    idx_retido = idx
+                elif 'vl. iss' in h_norm or 'issqn' in h_norm or 'iss' in h_norm:
                     if idx_valor_iss is None: idx_valor_iss = idx
-                elif 'cancelamento' in h_norm: idx_cancelamento = idx
+                elif 'raz' in h_norm and 'tomador' in h_norm:
+                    idx_tomador = idx
+                elif 'cancelamento' in h_norm or 'status' in h_norm:
+                    idx_cancelamento = idx
 
-            if idx_numero is None: idx_numero = 0
-            if idx_valor is None: idx_valor = 8
+            if idx_numero is None: idx_numero = 1
+            if idx_valor is None: idx_valor = 9
 
-            for idx_row, row in enumerate(reader):
-                if not row or len(row) <= idx_valor: continue
-                if idx_cancelamento is not None and idx_cancelamento < len(row) and row[idx_cancelamento].strip():
+            for idx_row in range(header_row_idx + 1, len(rows_list)):
+                row = rows_list[idx_row]
+                if not row or len(row) <= idx_valor:
+                    continue
+                
+                if row[0].strip().lower() == 'total':
                     continue
 
+                if idx_cancelamento is not None and idx_cancelamento < len(row):
+                    sit = row[idx_cancelamento].strip().upper()
+                    if sit in ['CANCELADA', 'C']:
+                        continue
+
                 raw_val = row[idx_valor].strip() if idx_valor < len(row) else ""
+                if not raw_val: continue
                 val = parse_val(raw_val)
                 if val <= 0: continue
 
                 val_iss = 0.0
                 if idx_valor_iss is not None and idx_valor_iss < len(row):
-                    val_iss = parse_val(row[idx_valor_iss].strip())
+                    raw_iss = row[idx_valor_iss].strip()
+                    if raw_iss:
+                        val_iss = parse_val(raw_iss)
 
-                num_cell = row[idx_numero].strip() if idx_numero < len(row) else f"UDI-{idx_row+1}"
+                num_cell = row[idx_numero].strip() if idx_numero < len(row) else ""
+                if not num_cell and len(row) > 1:
+                    num_cell = row[1].strip()
+                if not num_cell:
+                    num_cell = f"UDI-{idx_row+1}"
+                
                 nf = str(int(num_cell)) if num_cell.isdigit() else num_cell
+                tomador = row[idx_tomador].strip() if idx_tomador is not None and idx_tomador < len(row) else ""
+                
+                retido_val = row[idx_retido].strip() if idx_retido is not None and idx_retido < len(row) else ""
+                iss_ret_flag = "S" if retido_val == "1" or retido_val.lower() == "sim" else "N"
 
                 records.append({
                     "id": f"UDI-{len(records)+1}",
@@ -205,7 +274,10 @@ class UberlandiaParser(BaseCityParser):
                     "valor": val,
                     "valor_iss": val_iss,
                     "raw_valor": raw_val,
+                    "tomador": tomador,
+                    "iss_retido": iss_ret_flag,
                     "cidade": "Uberlândia"
                 })
-        except Exception: pass
+        except Exception:
+            pass
         return records
