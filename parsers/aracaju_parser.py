@@ -142,29 +142,31 @@ class AracajuParser(BaseCityParser):
             idx_valor_iss = None
             idx_situacao = None
             idx_tomador = None
+            idx_retido = None
 
             for idx, h in enumerate(headers):
                 if not h: continue
                 h_norm = str(h).lower().replace('ã', 'a').replace('ç', 'c').strip()
                 if 'numero' in h_norm and idx_numero is None:
                     idx_numero = idx
-                elif 'servico(r$)' in h_norm or 'servico' in h_norm or ('valor' in h_norm and idx_valor is None):
+                elif ('servico(r$)' in h_norm or 'valor servico' in h_norm or 'valor' in h_norm) and idx_valor is None:
                     idx_valor = idx
-                elif 'issqn(r$)' in h_norm or ('iss' in h_norm and idx_valor_iss is None):
-                    idx_valor_iss = idx
+                elif h_norm == 'iss' or 'issqn' in h_norm:
+                    if idx_valor_iss is None: idx_valor_iss = idx
+                elif 'iss retido' in h_norm:
+                    idx_retido = idx
                 elif 'situacao' in h_norm:
                     idx_situacao = idx
                 elif 'tomador' in h_norm or 'razao social' in h_norm:
                     idx_tomador = idx
 
-            if idx_numero is None: idx_numero = 4
-            if idx_valor is None: idx_valor = 7
-            if idx_situacao is None: idx_situacao = 0
-
+            if idx_numero is None: idx_numero = 0
+            if idx_valor is None: idx_valor = 8 # Valor Serviços
+            
             for row_idx in range(2, sheet.max_row+1):
                 num_cell = sheet.cell(row=row_idx, column=idx_numero+1).value
                 val_cell = sheet.cell(row=row_idx, column=idx_valor+1).value
-                sit_cell = sheet.cell(row=row_idx, column=idx_situacao+1).value if idx_situacao is not None else 'Normal'
+                sit_cell = sheet.cell(row=row_idx, column=idx_situacao+1).value if idx_situacao is not None else None
                 tomador_cell = sheet.cell(row=row_idx, column=idx_tomador+1).value if idx_tomador is not None else ''
 
                 if sit_cell and str(sit_cell).strip().capitalize() != 'Normal':
@@ -182,6 +184,12 @@ class AracajuParser(BaseCityParser):
                     if iss_cell is not None:
                         val_iss = parse_val(iss_cell)
 
+                iss_ret_flag = "N"
+                if idx_retido is not None:
+                    ret_cell = sheet.cell(row=row_idx, column=idx_retido+1).value
+                    if ret_cell is not None and str(ret_cell).strip().upper() in ["S", "SIM", "YES", "Y", "1"]:
+                        iss_ret_flag = "S"
+
                 records.append({
                     "id": f"AJU-{len(records)+1}",
                     "linha": row_idx,
@@ -190,6 +198,7 @@ class AracajuParser(BaseCityParser):
                     "valor_iss": val_iss,
                     "raw_valor": str(val_cell),
                     "tomador": str(tomador_cell or ''),
+                    "iss_retido": iss_ret_flag,
                     "cidade": "Aracaju"
                 })
         except Exception:
@@ -205,10 +214,44 @@ class AracajuParser(BaseCityParser):
                 for page_idx, page in enumerate(pdf.pages):
                     text = page.extract_text()
                     if not text: continue
+                    is_tomados = 'SERVIÇOS TOMADOS' in text.upper()
+                    
                     for line in text.split('\n'):
                         if '|' not in line: continue
                         parts = [p.strip() for p in line.split('|')]
-                        if len(parts) >= 5:
+                        
+                        if is_tomados and len(parts) >= 10:
+                            dia = parts[1]
+                            numero = parts[4]
+                            valor_docto = parts[5]
+                            base_calc = parts[7]
+                            iss_retido = parts[9]
+
+                            if dia.isdigit() and numero.isdigit() and valor_docto.replace('.', '').replace(',', '').isdigit():
+                                try:
+                                    val = float(valor_docto.replace('.', '').replace(',', '.'))
+                                    if val <= 0: continue
+                                    
+                                    val_iss = 0.0
+                                    if iss_retido:
+                                        try:
+                                            val_iss = float(iss_retido.replace('.', '').replace(',', '.'))
+                                        except ValueError:
+                                            pass
+
+                                    num_clean = str(int(numero))
+                                    records.append({
+                                        "id": f"AJU-{idx}",
+                                        "pagina": page_idx + 1,
+                                        "numero": num_clean,
+                                        "valor": val,
+                                        "valor_iss": val_iss,
+                                        "raw_valor": valor_docto,
+                                        "cidade": "Aracaju"
+                                    })
+                                    idx += 1
+                                except ValueError: pass
+                        elif not is_tomados and len(parts) >= 9:
                             dia = parts[1]
                             serie = parts[2]
                             numero = parts[3]
@@ -232,8 +275,6 @@ class AracajuParser(BaseCityParser):
                                     records.append({
                                         "id": f"AJU-{idx}",
                                         "pagina": page_idx + 1,
-                                        "dia": dia,
-                                        "serie": serie,
                                         "numero": num_clean,
                                         "valor": val,
                                         "valor_iss": val_iss,
