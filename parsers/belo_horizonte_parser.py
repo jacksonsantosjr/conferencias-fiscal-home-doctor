@@ -57,12 +57,12 @@ class BeloHorizonteParser(BaseCityParser):
 
             for idx, h in enumerate(headers):
                 if not h: continue
-                h_norm = str(h).lower().replace('ã', 'a').replace('ç', 'c').strip()
+                h_norm = str(h).lower().replace('ã', 'a').replace('ç', 'c').replace('é', 'e').replace('ú', 'u').strip()
                 if 'iss retido' in h_norm or 'retido' in h_norm:
                     if idx_iss_retido is None: idx_iss_retido = idx
-                elif 'numero' in h_norm and idx_numero is None:
-                    idx_numero = idx
-                elif 'valor servicos' in h_norm or ('valor' in h_norm and idx_valor is None):
+                elif 'numero' in h_norm or 'nmero' in h_norm or ('n' in h_norm and 'mero' in h_norm):
+                    if idx_numero is None: idx_numero = idx
+                elif 'valor servicos' in h_norm or 'servico(r$)' in h_norm or ('valor' in h_norm and idx_valor is None):
                     idx_valor = idx
                 elif h_norm == 'iss' or 'issqn' in h_norm:
                     if idx_valor_iss is None: idx_valor_iss = idx
@@ -77,10 +77,10 @@ class BeloHorizonteParser(BaseCityParser):
             if idx_tomador is None: idx_tomador = 6
 
             for row_idx in range(2, sheet.max_row+1):
-                num_cell = sheet.cell(row=row_idx, column=idx_numero+1).value
-                val_cell = sheet.cell(row=row_idx, column=idx_valor+1).value
-                canc_cell = sheet.cell(row=row_idx, column=idx_cancelamento+1).value
-                tomador_cell = sheet.cell(row=row_idx, column=idx_tomador+1).value
+                num_cell = sheet.cell(row=row_idx, column=idx_numero+1).value if idx_numero is not None else None
+                val_cell = sheet.cell(row=row_idx, column=idx_valor+1).value if idx_valor is not None else None
+                canc_cell = sheet.cell(row=row_idx, column=idx_cancelamento+1).value if idx_cancelamento is not None else None
+                tomador_cell = sheet.cell(row=row_idx, column=idx_tomador+1).value if idx_tomador is not None else None
 
                 if canc_cell and str(canc_cell).strip():
                     continue
@@ -129,10 +129,44 @@ class BeloHorizonteParser(BaseCityParser):
                 for page_idx, page in enumerate(pdf.pages):
                     text = page.extract_text()
                     if not text: continue
+                    is_tomados = 'SERVIÇOS TOMADOS' in text.upper() or 'SERVIOS TOMADOS' in text.upper()
                     for line in text.split('\n'):
                         if '|' not in line: continue
                         parts = [p.strip() for p in line.split('|')]
-                        if len(parts) >= 5:
+                        
+                        if is_tomados and len(parts) >= 10:
+                            dia = parts[1]
+                            numero = parts[4]
+                            valor_docto = parts[5]
+                            base_calc = parts[7]
+                            iss_retido = parts[9]
+                            
+                            if dia.isdigit() and numero.isdigit() and valor_docto.replace('.', '').replace(',', '').isdigit():
+                                try:
+                                    val = float(valor_docto.replace('.', '').replace(',', '.'))
+                                    if val <= 0: continue
+                                    
+                                    val_iss = 0.0
+                                    if iss_retido:
+                                        try:
+                                            val_iss = float(iss_retido.replace('.', '').replace(',', '.'))
+                                        except ValueError: pass
+                                    
+                                    num_clean = str(int(numero))
+                                    records.append({
+                                        "id": f"BH-{idx}",
+                                        "pagina": page_idx + 1,
+                                        "dia": dia,
+                                        "numero": num_clean,
+                                        "valor": val,
+                                        "valor_iss": val_iss,
+                                        "iss_retido": "N",
+                                        "raw_valor": valor_docto,
+                                        "cidade": "Belo Horizonte"
+                                    })
+                                    idx += 1
+                                except ValueError: pass
+                        elif not is_tomados and len(parts) >= 5:
                             dia = parts[1]
                             serie = parts[2]
                             numero = parts[3]
@@ -187,14 +221,17 @@ class BeloHorizonteParser(BaseCityParser):
             idx_cancelamento = None
 
             for idx, h in enumerate(headers):
-                h_norm = h.lower().replace('ã', 'a').replace('ç', 'c').strip()
+                h_norm = h.lower().replace('ã', 'a').replace('ç', 'c').replace('é', 'e').replace('ú', 'u').replace('', '').strip()
                 if 'iss retido' in h_norm or 'retido' in h_norm:
                     if idx_iss_retido is None: idx_iss_retido = idx
-                elif 'numero' in h_norm and idx_numero is None: idx_numero = idx
-                elif 'valor servicos' in h_norm or ('valor' in h_norm and idx_valor is None): idx_valor = idx
+                elif 'numero' in h_norm or 'nmero' in h_norm or ('n' in h_norm and 'mero' in h_norm):
+                    if idx_numero is None: idx_numero = idx
+                elif 'valor servicos' in h_norm or 'servico(r$)' in h_norm or ('valor' in h_norm and idx_valor is None):
+                    idx_valor = idx
                 elif h_norm == 'iss' or 'issqn' in h_norm:
                     if idx_valor_iss is None: idx_valor_iss = idx
-                elif 'cancelamento' in h_norm: idx_cancelamento = idx
+                elif 'cancelamento' in h_norm:
+                    idx_cancelamento = idx
 
             if idx_numero is None: idx_numero = 0
             if idx_valor is None: idx_valor = 8
