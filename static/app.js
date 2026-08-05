@@ -924,7 +924,9 @@ document.addEventListener('DOMContentLoaded', () => {
             '#f59e0b'  // status-warning-text darker
           ],
           borderWidth: 0,
-          hoverOffset: 4
+          hoverOffset: 4,
+          radius: '90%',
+          cutout: '55%'
         }]
       },
       options: {
