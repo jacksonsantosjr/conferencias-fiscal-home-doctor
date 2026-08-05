@@ -53,6 +53,8 @@ class BelemParser(BaseCityParser):
             idx_valor_iss = None
             idx_cancelamento = None
             idx_tomador = None
+            idx_base_calc = None
+            idx_retido = None
 
             for idx, h in enumerate(headers):
                 if not h: continue
@@ -63,6 +65,10 @@ class BelemParser(BaseCityParser):
                     idx_valor = idx
                 elif h_norm == 'iss' or 'issqn' in h_norm:
                     if idx_valor_iss is None: idx_valor_iss = idx
+                elif 'base de c' in h_norm or 'base calc' in h_norm:
+                    idx_base_calc = idx
+                elif 'iss retido' in h_norm:
+                    idx_retido = idx
                 elif 'cancelamento' in h_norm:
                     idx_cancelamento = idx
                 elif 'tomador - nome' in h_norm or ('tomador' in h_norm and idx_tomador is None):
@@ -93,15 +99,29 @@ class BelemParser(BaseCityParser):
                     iss_cell = sheet.cell(row=row_idx, column=idx_valor_iss+1).value
                     if iss_cell is not None:
                         val_iss = parse_val(iss_cell)
+                        
+                val_bc = 0.0
+                if idx_base_calc is not None:
+                    bc_cell = sheet.cell(row=row_idx, column=idx_base_calc+1).value
+                    if bc_cell is not None:
+                        val_bc = parse_val(bc_cell)
+                        
+                iss_ret_flag = "N"
+                if idx_retido is not None:
+                    ret_cell = sheet.cell(row=row_idx, column=idx_retido+1).value
+                    if ret_cell is not None and str(ret_cell).strip().upper() in ["S", "SIM", "YES", "Y", "1"]:
+                        iss_ret_flag = "S"
 
                 records.append({
                     "id": f"BEL-{len(records)+1}",
                     "linha": row_idx,
                     "numero": nf,
                     "valor": val,
+                    "valor_base_calculo": val_bc,
                     "valor_iss": val_iss,
                     "raw_valor": str(val_cell),
                     "tomador": str(tomador_cell or ''),
+                    "iss_retido": iss_ret_flag,
                     "cidade": "Belém"
                 })
         except Exception:

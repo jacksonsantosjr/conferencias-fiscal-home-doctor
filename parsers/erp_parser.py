@@ -246,13 +246,49 @@ class ERPParser:
         idx = 1
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+                is_tomados = False
                 for page_idx, page in enumerate(pdf.pages):
                     text = page.extract_text()
                     if not text: continue
+                    
+                    if "TOMADOS" in text.upper() and "SERVI" in text.upper():
+                        is_tomados = True
+                        
                     for line in text.split('\n'):
                         if '|' in line:
                             parts = [p.strip() for p in line.split('|')]
-                            if len(parts) >= 5:
+                            if is_tomados and len(parts) >= 10:
+                                dia = parts[1]
+                                numero = parts[4]
+                                valor_docto = parts[5]
+                                base_calc = parts[7]
+                                iss_retido = parts[9]
+                                
+                                if dia.isdigit() and numero.isdigit():
+                                    try:
+                                        val = float(valor_docto.replace('.', '').replace(',', '.'))
+                                        val_bc = float(base_calc.replace('.', '').replace(',', '.'))
+                                        val_iss = float(iss_retido.replace('.', '').replace(',', '.'))
+                                        
+                                        num_clean = str(numero).strip()
+                                        records.append({
+                                            "id": f"ERP-PDF-{idx}",
+                                            "linha_erp": page_idx + 1,
+                                            "nf_num": num_clean,
+                                            "nfs_nac": num_clean,
+                                            "rps": "",
+                                            "valor": val,
+                                            "valor_base_calculo": val_bc,
+                                            "valor_iss": val_iss,
+                                            "raw_valor": valor_docto,
+                                            "tomador": "Relatório ERP (PDF) Tomados",
+                                            "cnpj_tomador": "",
+                                            "data_emissao": ""
+                                        })
+                                        idx += 1
+                                    except ValueError: pass
+                                    
+                            elif not is_tomados and len(parts) >= 5:
                                 dia = parts[1]
                                 serie = parts[2]
                                 numero = parts[3]
@@ -312,6 +348,14 @@ class ERPParser:
                                         idx += 1
                                         break
                                 except ValueError: pass
-            return records
+            # Deduplicate by nf_num and valor as requested
+            unique_records = []
+            seen = set()
+            for r in records:
+                key = (r.get("nf_num"), r.get("valor"))
+                if key not in seen:
+                    seen.add(key)
+                    unique_records.append(r)
+            return unique_records
         except Exception:
             return []

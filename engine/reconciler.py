@@ -111,13 +111,16 @@ class ReconciliationEngine:
         sobras_erp_val = sum(e["valor"] for e in final_somente_erp)
         sobras_pref_val = sum(c["valor"] for c in final_somente_prefeitura)
         divergencia_total = round(sobras_erp_val + sobras_pref_val, 2)
+        
+        total_auditado_val = total_conciliado_val + divergencia_total
 
-        perc_conciliado = (len(matched) / len(erp_items) * 100) if erp_items else 0
+        total_items_envolvidos = len(matched) + len(final_somente_erp) + len(final_somente_prefeitura)
+        perc_conciliado = (len(matched) / total_items_envolvidos * 100) if total_items_envolvidos > 0 else 0
 
         return {
             "resumo": {
                 "total_erp_qtd": len(erp_items),
-                "total_erp_valor": round(total_erp_val, 2),
+                "total_erp_valor": round(total_auditado_val, 2),
                 "total_prefeitura_qtd": len(city_items),
                 "total_prefeitura_valor": round(total_city_val, 2),
                 "conciliados_qtd": len(matched),

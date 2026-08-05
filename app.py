@@ -112,10 +112,18 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_demo_reconcile(mode="iss")
         elif self.path == "/api/reconcile-iss":
             self.handle_upload_reconcile(mode="iss")
+        elif self.path == "/api/reconcile-iss-tomados-demo":
+            self.handle_demo_reconcile(mode="iss-tomados")
+        elif self.path == "/api/reconcile-iss-tomados":
+            self.handle_upload_reconcile(mode="iss-tomados")
         elif self.path == "/api/reconcile-iss-batch-demo":
             self.handle_batch_demo_reconcile(mode="iss")
         elif self.path == "/api/reconcile-iss-batch":
             self.handle_batch_upload_reconcile(mode="iss")
+        elif self.path == "/api/reconcile-iss-tomados-batch-demo":
+            self.handle_batch_demo_reconcile(mode="iss-tomados")
+        elif self.path == "/api/reconcile-iss-tomados-batch":
+            self.handle_batch_upload_reconcile(mode="iss-tomados")
         else:
             self.send_error(404, "Endpoint não encontrado")
 
@@ -506,6 +514,8 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                 ]
                 for item in city_items:
                     item["valor"] = item.get("valor_iss", 0.0)
+            elif mode == "iss-tomados":
+                pass
 
             result = engine.reconcile(erp_items, city_items)
             self.send_json_response({"success": True, "result": result})
@@ -619,6 +629,8 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                 ]
                 for item in city_items:
                     item["valor"] = item.get("valor_iss", 0.0)
+            elif mode == "iss-tomados":
+                pass
 
             result = engine.reconcile(erp_items, city_items)
             self.send_json_response({"success": True, "result": result})

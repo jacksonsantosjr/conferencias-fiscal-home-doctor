@@ -70,10 +70,20 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentMode = 'faturamento'; // 'faturamento' ou 'iss'
   let accuracyChartInstance = null;
 
-  const moduleState = {
+    const moduleState = {
     faturamento: { reconciliationData: null, batchData: null },
-    iss: { reconciliationData: null, batchData: null }
+    iss: { reconciliationData: null, batchData: null },
+    'iss-tomados': { reconciliationData: null, batchData: null }
   };
+
+  const fileState = {
+    prestados: { erpFile: null, cityFile: null, zipFile: null, erpText: 'Nenhum arquivo selecionado', cityText: 'Nenhum arquivo selecionado', zipText: 'Nenhum arquivo compactado selecionado', erpActive: false, cityActive: false, zipActive: false },
+    tomados: { erpFile: null, cityFile: null, zipFile: null, erpText: 'Nenhum arquivo selecionado', cityText: 'Nenhum arquivo selecionado', zipText: 'Nenhum arquivo compactado selecionado', erpActive: false, cityActive: false, zipActive: false }
+  };
+
+  function getFileGroup(mode) {
+    return mode === 'iss-tomados' ? 'tomados' : 'prestados';
+  }
 
   // ========================================================
   // GERENCIAMENTO DA SIDEBAR RETRÁTIL (CND STYLE)
@@ -101,6 +111,17 @@ document.addEventListener('DOMContentLoaded', () => {
       // Salva o estado atual antes de trocar
       moduleState[currentMode].reconciliationData = currentReconciliationData;
       moduleState[currentMode].batchData = currentBatchData;
+      
+      let fgOld = getFileGroup(currentMode);
+      fileState[fgOld].erpFile = selectedErpFile;
+      fileState[fgOld].cityFile = selectedCityFile;
+      fileState[fgOld].zipFile = selectedZipFile;
+      fileState[fgOld].erpText = erpFileStatus.textContent;
+      fileState[fgOld].cityText = cityFileStatus.textContent;
+      fileState[fgOld].zipText = zipFileStatus.textContent;
+      fileState[fgOld].erpActive = erpFileStatus.classList.contains('active');
+      fileState[fgOld].cityActive = cityFileStatus.classList.contains('active');
+      fileState[fgOld].zipActive = zipFileStatus.classList.contains('active');
 
       const mod = item.getAttribute('data-module');
       if (mod === 'iss-prestados') {
@@ -109,6 +130,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('moduleSub').textContent = 'Auditoria do Imposto Devido (ERP) vs ISS Apurado (Prefeitura)';
         document.querySelector('.upload-section h2').textContent = '🏛️ Importação dos Arquivos Fiscais (ISS)';
         document.querySelector('.modal-title-group h3').textContent = 'Conferência de ISS em Lote';
+      } else if (mod === 'iss-tomados') {
+        currentMode = 'iss-tomados';
+        document.getElementById('moduleTitle').textContent = 'Conferência ISS - Serviços Tomados';
+        document.getElementById('moduleSub').textContent = 'Auditoria de ISS Retido na Fonte (Tomador)';
+        document.querySelector('.upload-section h2').textContent = '🏢 Importação dos Arquivos Fiscais (Tomados)';
+        document.querySelector('.modal-title-group h3').textContent = 'Conferência de Tomados em Lote';
       } else {
         currentMode = 'faturamento';
         document.getElementById('moduleTitle').textContent = 'Conferência de Faturamento Fiscal';
@@ -120,6 +147,18 @@ document.addEventListener('DOMContentLoaded', () => {
       // Restaura o estado salvo do módulo escolhido
       currentReconciliationData = moduleState[currentMode].reconciliationData;
       currentBatchData = moduleState[currentMode].batchData;
+      
+      let fgNew = getFileGroup(currentMode);
+      selectedErpFile = fileState[fgNew].erpFile;
+      selectedCityFile = fileState[fgNew].cityFile;
+      selectedZipFile = fileState[fgNew].zipFile;
+      erpFileStatus.textContent = fileState[fgNew].erpText;
+      cityFileStatus.textContent = fileState[fgNew].cityText;
+      zipFileStatus.textContent = fileState[fgNew].zipText;
+      if (fileState[fgNew].erpActive) erpFileStatus.classList.add('active'); else erpFileStatus.classList.remove('active');
+      if (fileState[fgNew].cityActive) cityFileStatus.classList.add('active'); else cityFileStatus.classList.remove('active');
+      if (fileState[fgNew].zipActive) zipFileStatus.classList.add('active'); else zipFileStatus.classList.remove('active');
+
 
       if (currentReconciliationData) {
         renderResults(currentReconciliationData);
@@ -253,7 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Demo Lote (Todas as 18 Prefeituras)
   btnBatchDemo.addEventListener('click', async () => {
-    const endpoint = currentMode === 'iss' ? '/api/reconcile-iss-batch-demo' : '/api/reconcile-batch-demo';
+    const endpoint = currentMode === 'iss' ? '/api/reconcile-iss-batch-demo' : currentMode === 'iss-tomados' ? '/api/reconcile-iss-tomados-batch-demo' : '/api/reconcile-batch-demo';
     runBatchAnalysis(endpoint, null);
   });
 
@@ -265,7 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const formData = new FormData();
     formData.append('zip_file', selectedZipFile);
-    const endpoint = currentMode === 'iss' ? '/api/reconcile-iss-batch' : '/api/reconcile-batch';
+    const endpoint = currentMode === 'iss' ? '/api/reconcile-iss-batch' : currentMode === 'iss-tomados' ? '/api/reconcile-iss-tomados-batch' : '/api/reconcile-batch';
     runBatchAnalysis(endpoint, formData);
   });
 
@@ -437,7 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
     );
 
     try {
-      const endpoint = currentMode === 'iss' ? '/api/reconcile-iss-demo' : '/api/reconcile-demo';
+      const endpoint = currentMode === 'iss' ? '/api/reconcile-iss-demo' : currentMode === 'iss-tomados' ? '/api/reconcile-iss-tomados-demo' : '/api/reconcile-demo';
       let response;
       try {
         response = await fetch(endpoint, {
@@ -520,7 +559,7 @@ document.addEventListener('DOMContentLoaded', () => {
       formData.append('city_file', selectedCityFile);
       formData.append('city', selectedCity);
 
-      const endpoint = currentMode === 'iss' ? '/api/reconcile-iss' : '/api/reconcile';
+      const endpoint = currentMode === 'iss' ? '/api/reconcile-iss' : currentMode === 'iss-tomados' ? '/api/reconcile-iss-tomados' : '/api/reconcile';
       let response;
       try {
         response = await fetch(endpoint, { method: 'POST', body: formData });
@@ -595,6 +634,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Clear state in cache
     moduleState[currentMode].reconciliationData = null;
     moduleState[currentMode].batchData = null;
+    let fg = getFileGroup(currentMode);
+    fileState[fg].erpFile = null;
+    fileState[fg].cityFile = null;
+    fileState[fg].zipFile = null;
+    fileState[fg].erpText = 'Nenhum arquivo selecionado';
+    fileState[fg].cityText = 'Nenhum arquivo selecionado';
+    fileState[fg].zipText = 'Nenhum arquivo compactado selecionado';
+    fileState[fg].erpActive = false;
+    fileState[fg].cityActive = false;
+    fileState[fg].zipActive = false;
   });
 
   // Funções Auxiliares de Progresso Fluído Contínuo e Formatação
@@ -883,7 +932,7 @@ document.addEventListener('DOMContentLoaded', () => {
         maintainAspectRatio: false,
         layout: {
           padding: {
-            top: 70, // Espaço maior no topo para os rótulos externos
+            top: 20,
             bottom: 20,
             left: 40,
             right: 40
