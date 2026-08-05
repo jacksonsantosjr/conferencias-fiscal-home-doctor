@@ -228,6 +228,7 @@ class BrasiliaParser(BaseCityParser):
             idx_natureza = None
             idx_valor = None
             idx_valor_iss = None
+            idx_iss_retido = None
             idx_numero = None
             idx_cnpj = None
 
@@ -237,7 +238,9 @@ class BrasiliaParser(BaseCityParser):
                     idx_natureza = idx
                 elif 'valor documento' in h_norm or ('valor' in h_norm and 'imposto' not in h_norm and idx_valor is None):
                     idx_valor = idx
-                elif 'valor imposto' in h_norm or 'imposto' in h_norm:
+                elif 'imposto retido' in h_norm:
+                    idx_iss_retido = idx
+                elif 'valor imposto' in h_norm or ('imposto' in h_norm and 'retido' not in h_norm):
                     if idx_valor_iss is None: idx_valor_iss = idx
                 elif h.strip() in ['Nº', 'N°', 'NÂ°', 'NÂº', 'Numero', 'Número'] or ('n' in h_norm and 'doc' not in h_norm and idx_numero is None):
                     if idx_numero is None: idx_numero = idx
@@ -272,6 +275,12 @@ class BrasiliaParser(BaseCityParser):
                                 val_iss = float(raw_iss.replace('.', '').replace(',', '.'))
                             except ValueError: pass
 
+                    iss_ret_str = "N"
+                    if idx_iss_retido is not None and idx_iss_retido < len(row):
+                        ret_val = str(row[idx_iss_retido]).strip().upper()
+                        if ret_val in ["SIM", "S", "TRUE", "1"]:
+                            iss_ret_str = "S"
+
                     nf = row[idx_numero].strip() if idx_numero < len(row) else f"DF-{idx_row+1}"
                     cnpj = row[idx_cnpj].strip() if idx_cnpj < len(row) else ''
 
@@ -281,6 +290,7 @@ class BrasiliaParser(BaseCityParser):
                         "numero": nf,
                         "valor": val,
                         "valor_iss": val_iss,
+                        "iss_retido": iss_ret_str,
                         "raw_valor": raw_val,
                         "cnpj_tomador": cnpj,
                         "cidade": "Brasília"
