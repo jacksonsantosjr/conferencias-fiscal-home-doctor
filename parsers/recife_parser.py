@@ -8,8 +8,22 @@ import pdfplumber
 import io
 import os
 import csv
+import openpyxl
 from typing import List, Dict, Any
 from parsers.base_parser import BaseCityParser, safe_read_bytes
+
+def parse_val(val_raw) -> float:
+    if isinstance(val_raw, (int, float)):
+        return float(val_raw)
+    val_str = str(val_raw).replace('R$', '').replace(' ', '').replace('\xa0', '').strip()
+    if not val_str:
+        return 0.0
+    if ',' in val_str:
+        val_str = val_str.replace('.', '').replace(',', '.')
+    try:
+        return float(val_str)
+    except ValueError:
+        return 0.0
 
 class RecifeParser(BaseCityParser):
     def __init__(self):
@@ -22,8 +36,92 @@ class RecifeParser(BaseCityParser):
 
         if data_bytes.startswith(b'%PDF'):
             return self._parse_pdf_bytes(data_bytes)
+        elif data_bytes.startswith(b'PK\x03\x04'):
+            return self._parse_xlsx_bytes(data_bytes)
         else:
             return self._parse_csv_bytes(data_bytes)
+
+    def _parse_xlsx_bytes(self, xlsx_bytes: bytes) -> List[Dict[str, Any]]:
+        records = []
+        try:
+            wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes), data_only=True)
+            sheet = wb.active
+
+            headers = [sheet.cell(row=1, column=j).value for j in range(1, sheet.max_column+1)]
+            idx_numero = None
+            idx_valor = None
+            idx_valor_iss = None
+            idx_cancelamento = None
+            idx_tomador = None
+            idx_retido = None
+
+            for idx, h in enumerate(headers):
+                if not h: continue
+                h_norm = str(h).lower().replace('ã', 'a').replace('ç', 'c').strip()
+                if 'numero' in h_norm and idx_numero is None:
+                    idx_numero = idx
+                elif 'valor servicos' in h_norm or ('valor' in h_norm and idx_valor is None):
+                    idx_valor = idx
+                elif h_norm == 'iss' or 'issqn' in h_norm:
+                    if idx_valor_iss is None: idx_valor_iss = idx
+                elif 'iss retido' in h_norm:
+                    idx_retido = idx
+                elif 'cancelamento' in h_norm:
+                    idx_cancelamento = idx
+                elif 'tomador - nome' in h_norm or ('tomador' in h_norm and idx_tomador is None):
+                    idx_tomador = idx
+
+            if idx_numero is None: idx_numero = 0
+            if idx_valor is None: idx_valor = 8
+            if idx_cancelamento is None: idx_cancelamento = 11
+            if idx_tomador is None: idx_tomador = 6
+            if idx_retido is None: idx_retido = 19
+
+            for row_idx in range(2, sheet.max_row+1):
+                num_cell = sheet.cell(row=row_idx, column=idx_numero+1).value
+                val_cell = sheet.cell(row=row_idx, column=idx_valor+1).value
+                canc_cell = sheet.cell(row=row_idx, column=idx_cancelamento+1).value
+                tomador_cell = sheet.cell(row=row_idx, column=idx_tomador+1).value
+
+                if canc_cell and str(canc_cell).strip():
+                    continue
+
+                if val_cell is None: continue
+                val = parse_val(val_cell)
+                if val <= 0: continue
+
+                nf = str(int(num_cell)) if isinstance(num_cell, (int, float)) else str(num_cell).strip()
+
+                val_iss = 0.0
+                if idx_valor_iss is not None:
+                    iss_cell = sheet.cell(row=row_idx, column=idx_valor_iss+1).value
+                    if iss_cell is not None:
+                        val_iss = parse_val(iss_cell)
+
+                retido_val = ""
+                if idx_retido is not None:
+                    r_cell = sheet.cell(row=row_idx, column=idx_retido+1).value
+                    if r_cell is not None:
+                        retido_val = str(r_cell).strip().lower()
+                
+                # "Sim" -> "S", "Não" -> "N"
+                iss_ret_flag = "S" if retido_val == "sim" else "N"
+
+                records.append({
+                    "id": f"REC-{len(records)+1}",
+                    "linha": row_idx,
+                    "numero": nf,
+                    "valor": val,
+                    "valor_iss": val_iss,
+                    "raw_valor": str(val_cell),
+                    "tomador": str(tomador_cell or ''),
+                    "iss_retido": iss_ret_flag,
+                    "cidade": "Recife"
+                })
+        except Exception:
+            pass
+
+        return records
 
     def _parse_csv_bytes(self, csv_bytes: bytes) -> List[Dict[str, Any]]:
         records = []
