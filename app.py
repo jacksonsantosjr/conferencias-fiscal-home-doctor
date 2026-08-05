@@ -50,7 +50,7 @@ ALL_CITIES_CONFIG = [
     {"name": "Aracaju", "folder": "Aracaju", "erp": "Relatório de Notas Fiscais Emitidas Aracaju.pdf", "city_file": "NFS-e Emitidas - BAHIA HOME CARE SERVICOS MEDICOS DOMICILIARES LTDA - 07.766.008_0005-36_Aracaju.csv", "parser": AracajuParser},
     {"name": "Belém", "folder": "Belém", "erp": "Relatório de Notas Fiscais Emitidas Belém.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Belém.xlsx", "parser": BelemParser},
     {"name": "Belo Horizonte", "folder": "Belo Horizonte", "erp": "Relatório de Notas Fiscais Emitidas Belo Horizonte.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Belo Horizonte.xlsx", "parser": BeloHorizonteParser},
-    {"name": "Brasília", "folder": "Brasilia", "erp": "Relatório de Notas Fiscais Emitidas Brasilia.pdf", "city_file": "Nota Fiscal Prefeitura de Brasilia.csv", "parser": BrasiliaParser},
+    {"name": "Brasília", "folder": "Brasilia", "erp": "Relatório de Notas Fiscais Emitidas Brasilia.pdf", "city_file": "Download - NFS-e - Relatório Serv. Prestados - 01-07-2026 a 31-07-2026 - Brasilia.xlsx", "parser": BrasiliaParser},
     {"name": "Campinas", "folder": "Campinas", "erp": "Relatório de Notas Fiscais Emitidas Campinas.pdf", "city_file": "Nota Fiscal Prefeitura de Campinas.csv", "parser": CampinasParser},
     {"name": "Curitiba", "folder": "Curitiba", "erp": "Relatório de Notas Fiscais Emitidas Curitiba.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Curitiba.xlsx", "parser": CuritibaParser},
     {"name": "Fortaleza", "folder": "Fortaleza", "erp": "Relatório de Notas Fiscais Emitidas Fortaleza.pdf", "city_file": "Download - NFS-e - Relatório - 01-06-2026 a 30-06-2026 Fortaleza.xlsx", "parser": FortalezaParser},
