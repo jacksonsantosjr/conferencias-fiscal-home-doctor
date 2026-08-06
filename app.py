@@ -635,26 +635,28 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
             result = engine.reconcile(erp_items, city_items)
 
             if mode == "iss-tomados":
-                total_iss_erp = 0.0
-                total_iss_pref = 0.0
+                total_iss_erp = sum(float(e.get("valor_iss", 0.0) or 0.0) for e in erp_items)
+                
+                def _is_retido(c):
+                    return str(c.get("iss_retido", "N")).strip().upper() in ["S", "SIM", "YES", "Y", "1"]
+
+                total_iss_pref = sum(float(c.get("valor_iss", 0.0) or 0.0) for c in city_items if _is_retido(c))
+                
                 divergencias_iss = []
                 qtd_analisada = 0
 
                 for match in result.get("conciliados", []):
-                    # Ignorar MATCH-SPLIT na auditoria de ISS (já que a lógica principal abstrai itens múltiplos numa tupla/sum).
+                    # Ignorar MATCH-SPLIT na auditoria de ISS
                     if match["id"].startswith("MATCH-SPLIT"):
                         continue
                     
                     city_item = match.get("prefeitura", {})
                     erp_item = match.get("erp", {})
                     
-                    if str(city_item.get("iss_retido", "N")).strip().upper() in ["S", "SIM", "YES", "Y", "1"]:
-                        val_iss_erp = float(erp_item.get("valor_iss", 0.0))
-                        val_iss_pref = float(city_item.get("valor_iss", 0.0))
-                        
-                        total_iss_erp += val_iss_erp
-                        total_iss_pref += val_iss_pref
+                    if _is_retido(city_item):
                         qtd_analisada += 1
+                        val_iss_erp = float(erp_item.get("valor_iss", 0.0) or 0.0)
+                        val_iss_pref = float(city_item.get("valor_iss", 0.0) or 0.0)
                         
                         diff = abs(val_iss_erp - val_iss_pref)
                         if diff > 0.04:
