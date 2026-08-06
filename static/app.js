@@ -758,6 +758,9 @@ document.addEventListener('DOMContentLoaded', () => {
         valor_erp: m.valor_erp || 0,
         valor_prefeitura: m.valor_prefeitura || 0,
         diferenca: m.diferenca || 0,
+        iss_erp: m.erp?.valor_iss || 0,
+        iss_prefeitura: m.prefeitura?.valor_iss || 0,
+        iss_retido: m.prefeitura?.iss_retido || 'N',
         diagnostico: m.detalhe || 'Conciliado'
       });
     });
@@ -773,6 +776,9 @@ document.addEventListener('DOMContentLoaded', () => {
         valor_erp: m.valor_erp || 0,
         valor_prefeitura: m.valor_prefeitura || 0,
         diferenca: m.diferenca || 0,
+        iss_erp: m.erp?.valor_iss || 0,
+        iss_prefeitura: m.prefeitura?.valor_iss || 0,
+        iss_retido: m.prefeitura?.iss_retido || 'N',
         diagnostico: m.detalhe || 'Divergência de valores'
       });
     });
@@ -788,6 +794,9 @@ document.addEventListener('DOMContentLoaded', () => {
         valor_erp: e.valor || 0,
         valor_prefeitura: 0,
         diferenca: e.valor || 0,
+        iss_erp: e.valor_iss || 0,
+        iss_prefeitura: 0,
+        iss_retido: 'N',
         diagnostico: 'Nota presente no ERP mas não localizada na Prefeitura'
       });
     });
@@ -803,6 +812,9 @@ document.addEventListener('DOMContentLoaded', () => {
         valor_erp: 0,
         valor_prefeitura: c.valor || 0,
         diferenca: c.valor || 0,
+        iss_erp: 0,
+        iss_prefeitura: c.valor_iss || 0,
+        iss_retido: c.iss_retido || 'N',
         diagnostico: 'Nota presente na Prefeitura mas não localizada no ERP'
       });
     });
@@ -835,6 +847,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Processamento da Auditoria Secundária de ISS
     const dashboardIssAudit = document.getElementById('dashboardIssAudit');
+    const issHeaders = document.querySelectorAll('.col-iss');
     if (result.auditoria_iss && result.auditoria_iss.ativo) {
       document.getElementById('statIssQtd').textContent = result.auditoria_iss.qtd_analisada;
       document.getElementById('statIssErp').textContent = formatCurrency(result.auditoria_iss.total_iss_erp);
@@ -852,9 +865,11 @@ document.addEventListener('DOMContentLoaded', () => {
         divCount.textContent = 'Nenhuma divergência de ISS';
       }
       
-      dashboardIssAudit.style.display = 'grid';
+      if(dashboardIssAudit) dashboardIssAudit.style.display = 'grid';
+      issHeaders.forEach(th => th.style.display = '');
     } else {
       if(dashboardIssAudit) dashboardIssAudit.style.display = 'none';
+      issHeaders.forEach(th => th.style.display = 'none');
     }
 
     resultsSection.style.display = 'block';
@@ -1049,6 +1064,18 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         statusBadge = '<span class="badge badge-city-only">⚠️ Apenas Prefeitura</span>';
       }
+      
+      let issCols = '';
+      if (currentReconciliationData.auditoria_iss && currentReconciliationData.auditoria_iss.ativo) {
+        let isRetido = (item.iss_retido === 'S' || item.iss_retido === 'SIM' || item.iss_retido === 'Y' || item.iss_retido === '1');
+        let diffIss = Math.abs((item.iss_erp || 0) - (item.iss_prefeitura || 0));
+        let issColor = (isRetido && diffIss > 0.04) ? 'color: var(--status-danger-text); font-weight: bold;' : '';
+        
+        issCols = `
+          <td style="${issColor}">${formatCurrency(item.iss_erp || 0)}</td>
+          <td style="${issColor}">${formatCurrency(item.iss_prefeitura || 0)}</td>
+        `;
+      }
 
       tr.innerHTML = `
         <td>${statusBadge}</td>
@@ -1060,6 +1087,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td style="color: ${item.diferenca > 0.04 ? 'var(--status-danger-text)' : 'var(--text-muted)'}">
           ${formatCurrency(item.diferenca || 0)}
         </td>
+        ${issCols}
         <td><small style="color: var(--text-muted);">${item.diagnostico || '-'}</small></td>
       `;
 
