@@ -828,6 +828,31 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('countCityOnly').textContent = result.items.filter(i => i.status === 'SOMENTE_PREFEITURA').length;
 
     dashboardGrid.style.display = 'grid';
+    
+    // Processamento da Auditoria Secundária de ISS
+    const dashboardIssAudit = document.getElementById('dashboardIssAudit');
+    if (result.auditoria_iss && result.auditoria_iss.ativo) {
+      document.getElementById('statIssQtd').textContent = result.auditoria_iss.qtd_analisada;
+      document.getElementById('statIssErp').textContent = formatCurrency(result.auditoria_iss.total_iss_erp);
+      document.getElementById('statIssPref').textContent = formatCurrency(result.auditoria_iss.total_iss_prefeitura);
+      
+      const divVal = document.getElementById('statIssDiv');
+      const divCount = document.getElementById('statIssDivCount');
+      divVal.textContent = formatCurrency(result.auditoria_iss.valor_divergencias);
+      
+      if (result.auditoria_iss.qtd_divergencias > 0) {
+        divVal.style.color = 'var(--status-danger-text)';
+        divCount.textContent = `${result.auditoria_iss.qtd_divergencias} notas com diferença de ISS`;
+      } else {
+        divVal.style.color = 'var(--status-success-text)';
+        divCount.textContent = 'Nenhuma divergência de ISS';
+      }
+      
+      dashboardIssAudit.style.display = 'grid';
+    } else {
+      if(dashboardIssAudit) dashboardIssAudit.style.display = 'none';
+    }
+
     resultsSection.style.display = 'block';
     
     document.getElementById('uploadFormContainer').style.display = 'none';

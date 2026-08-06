@@ -633,6 +633,50 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                 pass
 
             result = engine.reconcile(erp_items, city_items)
+
+            if mode == "iss-tomados":
+                total_iss_erp = 0.0
+                total_iss_pref = 0.0
+                divergencias_iss = []
+                qtd_analisada = 0
+
+                for match in result.get("conciliados", []):
+                    # Ignorar MATCH-SPLIT na auditoria de ISS (já que a lógica principal abstrai itens múltiplos numa tupla/sum).
+                    if match["id"].startswith("MATCH-SPLIT"):
+                        continue
+                    
+                    city_item = match.get("prefeitura", {})
+                    erp_item = match.get("erp", {})
+                    
+                    if str(city_item.get("iss_retido", "N")).strip().upper() in ["S", "SIM", "YES", "Y", "1"]:
+                        val_iss_erp = float(erp_item.get("valor_iss", 0.0))
+                        val_iss_pref = float(city_item.get("valor_iss", 0.0))
+                        
+                        total_iss_erp += val_iss_erp
+                        total_iss_pref += val_iss_pref
+                        qtd_analisada += 1
+                        
+                        diff = abs(val_iss_erp - val_iss_pref)
+                        if diff > 0.04:
+                            divergencias_iss.append({
+                                "numero": erp_item.get("numero", city_item.get("numero", "")),
+                                "valor_iss_erp": round(val_iss_erp, 2),
+                                "valor_iss_pref": round(val_iss_pref, 2),
+                                "diferenca": round(diff, 2)
+                            })
+                            # Opcional: injetar detalhe na linha para a tabela principal
+                            match["detalhe"] += f" | ⚠️ Atenção: Div. no ISS de R$ {diff:.2f}"
+                            match["status"] = "TOLERANCIA" # Muda a cor pra laranjinha se der diferença de ISS
+                            
+                result["auditoria_iss"] = {
+                    "ativo": True,
+                    "qtd_analisada": qtd_analisada,
+                    "total_iss_erp": round(total_iss_erp, 2),
+                    "total_iss_prefeitura": round(total_iss_pref, 2),
+                    "qtd_divergencias": len(divergencias_iss),
+                    "valor_divergencias": round(sum(d["diferenca"] for d in divergencias_iss), 2),
+                    "detalhes": divergencias_iss
+                }
             self.send_json_response({"success": True, "result": result})
 
         except Exception as e:

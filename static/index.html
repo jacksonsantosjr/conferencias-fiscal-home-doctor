@@ -198,6 +198,33 @@
           </div>
         </section>
 
+        <!-- Dashboard Auditoria ISS Retido (Oculto inicialmente) -->
+        <section class="dashboard-grid" id="dashboardIssAudit" style="display: none; margin-top: 15px;">
+          <div class="glass-panel stat-card" style="border-left: 4px solid var(--accent-color);">
+            <div class="stat-title">Notas Retidas (Sim)</div>
+            <div class="stat-value" id="statIssQtd" style="color: var(--accent-color);">0</div>
+            <div class="stat-sub">Consideradas para auditoria de ISS</div>
+          </div>
+
+          <div class="glass-panel stat-card" style="border-left: 4px solid #8e44ad;">
+            <div class="stat-title">Total ISS (ERP)</div>
+            <div class="stat-value" id="statIssErp" style="color: #8e44ad;">R$ 0,00</div>
+            <div class="stat-sub">Soma do ISS Retido no sistema ERP</div>
+          </div>
+
+          <div class="glass-panel stat-card" style="border-left: 4px solid #2980b9;">
+            <div class="stat-title">Total ISS (Prefeitura)</div>
+            <div class="stat-value" id="statIssPref" style="color: #2980b9;">R$ 0,00</div>
+            <div class="stat-sub">Soma do ISS apurado na Prefeitura</div>
+          </div>
+
+          <div class="glass-panel stat-card divergentes">
+            <div class="stat-title">Divergência de ISS</div>
+            <div class="stat-value" id="statIssDiv" style="color: var(--status-danger-text);">R$ 0,00</div>
+            <div class="stat-sub" id="statIssDivCount">Nenhuma divergência</div>
+          </div>
+        </section>
+
         <!-- Resultados Detalhados (Oculto inicialmente) -->
         <section class="glass-panel results-section" id="resultsSection" style="display: none;">
           <div class="results-header">
