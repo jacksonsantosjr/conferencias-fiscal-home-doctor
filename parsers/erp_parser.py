@@ -348,14 +348,20 @@ class ERPParser:
                                         idx += 1
                                         break
                                 except ValueError: pass
-            # Deduplicate by nf_num and valor as requested
+            # Deduplicate by nf_num and valor as requested, but SUM valor_iss
             unique_records = []
-            seen = set()
+            seen = {}
             for r in records:
                 key = (r.get("nf_num"), r.get("valor"))
                 if key not in seen:
-                    seen.add(key)
+                    seen[key] = r
                     unique_records.append(r)
+                else:
+                    # Update the existing record by adding the ISS and base calc values
+                    existing = seen[key]
+                    existing["valor_iss"] = existing.get("valor_iss", 0.0) + r.get("valor_iss", 0.0)
+                    if "valor_base_calculo" in existing and "valor_base_calculo" in r:
+                        existing["valor_base_calculo"] = existing.get("valor_base_calculo", 0.0) + r.get("valor_base_calculo", 0.0)
             return unique_records
         except Exception:
             return []
