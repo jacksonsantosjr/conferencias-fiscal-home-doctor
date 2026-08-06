@@ -1068,12 +1068,25 @@ document.addEventListener('DOMContentLoaded', () => {
       let issCols = '';
       if (currentReconciliationData.auditoria_iss && currentReconciliationData.auditoria_iss.ativo) {
         let isRetido = (item.iss_retido === 'S' || item.iss_retido === 'SIM' || item.iss_retido === 'Y' || item.iss_retido === '1');
-        let diffIss = Math.abs((item.iss_erp || 0) - (item.iss_prefeitura || 0));
-        let issColor = (isRetido && diffIss > 0.04) ? 'color: var(--status-danger-text); font-weight: bold;' : '';
+        
+        let dispIssErp = 0;
+        let dispIssPref = 0;
+        let diffIss = 0;
+        let issColor = '';
+
+        if (isRetido) {
+          dispIssErp = item.iss_erp || 0;
+          dispIssPref = item.iss_prefeitura || 0;
+          diffIss = Math.abs(dispIssErp - dispIssPref);
+          if (diffIss > 0.04) {
+            issColor = 'color: var(--status-danger-text); font-weight: bold;';
+          }
+        }
         
         issCols = `
-          <td style="${issColor}">${formatCurrency(item.iss_erp || 0)}</td>
-          <td style="${issColor}">${formatCurrency(item.iss_prefeitura || 0)}</td>
+          <td style="${issColor}">${formatCurrency(dispIssErp)}</td>
+          <td style="${issColor}">${formatCurrency(dispIssPref)}</td>
+          <td style="${issColor}">${formatCurrency(diffIss)}</td>
         `;
       }
 
