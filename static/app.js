@@ -164,6 +164,8 @@ document.addEventListener('DOMContentLoaded', () => {
         renderResults(currentReconciliationData);
       } else {
         dashboardGrid.style.display = 'none';
+        const dashboardIssAudit = document.getElementById('dashboardIssAudit');
+        if (dashboardIssAudit) dashboardIssAudit.style.display = 'none';
         resultsSection.style.display = 'none';
         document.getElementById('uploadFormContainer').style.display = 'block';
         document.getElementById('chartContainer').style.display = 'none';
@@ -626,6 +628,8 @@ document.addEventListener('DOMContentLoaded', () => {
     erpFileStatus.classList.remove('active');
     cityFileStatus.classList.remove('active');
     dashboardGrid.style.display = 'none';
+    const dashboardIssAudit = document.getElementById('dashboardIssAudit');
+    if (dashboardIssAudit) dashboardIssAudit.style.display = 'none';
     resultsSection.style.display = 'none';
     document.getElementById('uploadFormContainer').style.display = 'block';
     document.getElementById('chartContainer').style.display = 'none';
