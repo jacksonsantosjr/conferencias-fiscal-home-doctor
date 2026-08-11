@@ -243,12 +243,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // ========================================================
   // GERENCIAMENTO DE TEMA (LIGHT / DARK MODE)
   // ========================================================
-  const savedTheme = localStorage.getItem('theme') || 'dark';
+  const savedTheme = localStorage.getItem('theme') || 'light';
   applyTheme(savedTheme);
 
   btnThemeToggle.addEventListener('click', () => {
-    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
     applyTheme(newTheme);
     localStorage.setItem('theme', newTheme);
   });
