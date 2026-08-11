@@ -857,7 +857,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const divCount = document.getElementById('statIssDivCount');
       divVal.textContent = formatCurrency(result.auditoria_iss.valor_divergencias);
       
-      if (result.auditoria_iss.qtd_divergencias > 0) {
+      if (result.auditoria_iss.valor_divergencias > 0 && result.auditoria_iss.qtd_divergencias === 0) {
+        divVal.style.color = '#f59e0b';
+        divCount.textContent = 'Diferença de ISS global (apenas um dos relatórios)';
+      } else if (result.auditoria_iss.qtd_divergencias > 0) {
         divVal.style.color = 'var(--status-danger-text)';
         divCount.textContent = `${result.auditoria_iss.qtd_divergencias} notas com diferença de ISS`;
       } else {

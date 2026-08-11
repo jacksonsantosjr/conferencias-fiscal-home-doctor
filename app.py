@@ -676,7 +676,7 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                     "total_iss_erp": round(total_iss_erp, 2),
                     "total_iss_prefeitura": round(total_iss_pref, 2),
                     "qtd_divergencias": len(divergencias_iss),
-                    "valor_divergencias": round(sum(d["diferenca"] for d in divergencias_iss), 2),
+                    "valor_divergencias": round(abs(total_iss_erp - total_iss_pref), 2),
                     "detalhes": divergencias_iss
                 }
             self.send_json_response({"success": True, "result": result})
