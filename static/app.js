@@ -1356,11 +1356,11 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     });
 
-    html += \`
+    html += `
           </tbody>
         </table>
       </div>
-    \`;
+    `;
 
     container.innerHTML = html;
     container.style.display = 'block';
