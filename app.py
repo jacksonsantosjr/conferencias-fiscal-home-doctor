@@ -44,6 +44,7 @@ from parsers.goiania_parser import GoianiaParser
 from parsers.aracaju_parser import AracajuParser
 from parsers.balancete_parser import BalanceteParser
 from engine.reconciler import ReconciliationEngine
+from parsers.irrf_reconciler import IRRFReconciler
 
 PORT = 8000
 
@@ -130,6 +131,8 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_batch_demo_reconcile(mode="iss-tomados")
         elif self.path == "/api/reconcile-iss-tomados-batch":
             self.handle_batch_upload_reconcile(mode="iss-tomados")
+        elif self.path == "/api/reconcile-irrf":
+            self.handle_irrf_reconcile()
         else:
             self.send_error(404, "Endpoint não encontrado")
 
@@ -726,6 +729,48 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
 
         except Exception as e:
             self.send_json_response({"success": False, "error": f"Erro no processamento: {str(e)}"})
+
+    def handle_irrf_reconcile(self):
+        try:
+            content_type = self.headers.get('content-type', '')
+            if 'multipart/form-data' not in content_type:
+                self.send_json_response({"success": False, "error": "Formato de envio inválido."})
+                return
+
+            boundary_str = None
+            for part in content_type.split(';'):
+                part = part.strip()
+                if part.startswith('boundary='):
+                    boundary_str = part.split('=', 1)[1].strip('"\'')
+
+            if not boundary_str:
+                self.send_json_response({"success": False, "error": "Boundary do formulário não encontrado."})
+                return
+
+            content_length = int(self.headers.get('content-length', 0))
+            body_bytes = self.rfile.read(content_length)
+
+            fields = parse_multipart_data(body_bytes, boundary_str.encode('utf-8'))
+
+            sf1_bytes = fields.get('sf1_file')
+            aglu_bytes = fields.get('aglu_file')
+            r4020_bytes = fields.get('r4020_file')
+
+            if not sf1_bytes or not aglu_bytes or not r4020_bytes:
+                self.send_json_response({"success": False, "error": "Todos os três arquivos de IRRF (SF1, Aglutinação e R-4020) devem ser anexados."})
+                return
+
+            irrf_parser = IRRFReconciler()
+            irrf_parser.parse_sf1(io.BytesIO(sf1_bytes))
+            irrf_parser.parse_aglutinacao(io.BytesIO(aglu_bytes))
+            irrf_parser.parse_r4020(io.BytesIO(r4020_bytes))
+            
+            result = irrf_parser.reconcile()
+
+            self.send_json_response({"success": True, "result": result})
+
+        except Exception as e:
+            self.send_json_response({"success": False, "error": f"Erro no processamento de IRRF: {str(e)}"})
 
     def send_json_response(self, data: Dict[str, Any], status_code: int = 200):
         body = json.dumps(data, ensure_ascii=False).encode('utf-8')

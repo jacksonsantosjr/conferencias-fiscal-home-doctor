@@ -75,17 +75,33 @@ document.addEventListener('DOMContentLoaded', () => {
     const moduleState = {
     faturamento: { reconciliationData: null, batchData: null },
     iss: { reconciliationData: null, batchData: null },
-    'iss-tomados': { reconciliationData: null, batchData: null }
+    'iss-tomados': { reconciliationData: null, batchData: null },
+    irrf: { reconciliationData: null, batchData: null }
   };
 
   const fileState = {
     prestados: { erpFile: null, cityFile: null, zipFile: null, erpText: 'Nenhum arquivo selecionado', cityText: 'Nenhum arquivo selecionado', zipText: 'Nenhum arquivo compactado selecionado', erpActive: false, cityActive: false, zipActive: false },
-    tomados: { erpFile: null, cityFile: null, zipFile: null, erpText: 'Nenhum arquivo selecionado', cityText: 'Nenhum arquivo selecionado', zipText: 'Nenhum arquivo compactado selecionado', erpActive: false, cityActive: false, zipActive: false }
+    tomados: { erpFile: null, cityFile: null, zipFile: null, erpText: 'Nenhum arquivo selecionado', cityText: 'Nenhum arquivo selecionado', zipText: 'Nenhum arquivo compactado selecionado', erpActive: false, cityActive: false, zipActive: false },
+    irrf: { sf1File: null, agluFile: null, r4020File: null, sf1Text: 'Nenhum arquivo selecionado', agluText: 'Nenhum arquivo selecionado', r4020Text: 'Nenhum arquivo selecionado' }
   };
 
   function getFileGroup(mode) {
+    if (mode === 'irrf') return 'irrf';
     return mode === 'iss-tomados' ? 'tomados' : 'prestados';
   }
+
+  // IRRF Elements
+  const sf1FileInput = document.getElementById('sf1-file');
+  const agluFileInput = document.getElementById('aglu-file');
+  const r4020FileInput = document.getElementById('r4020-file');
+  const sf1FileName = document.getElementById('sf1-name');
+  const agluFileName = document.getElementById('aglu-name');
+  const r4020FileName = document.getElementById('r4020-name');
+  const btnStartIrrfAudit = document.getElementById('reconcile-irrf-btn');
+
+  let selectedSf1File = null;
+  let selectedAgluFile = null;
+  let selectedR4020File = null;
 
   // ========================================================
   // GERENCIAMENTO DA SIDEBAR RETRÁTIL (CND STYLE)
@@ -115,44 +131,65 @@ document.addEventListener('DOMContentLoaded', () => {
       moduleState[currentMode].batchData = currentBatchData;
       
       let fgOld = getFileGroup(currentMode);
-      fileState[fgOld].erpFile = selectedErpFile;
-      fileState[fgOld].cityFile = selectedCityFile;
-      fileState[fgOld].zipFile = selectedZipFile;
-      fileState[fgOld].erpText = erpFileStatus.textContent;
-      fileState[fgOld].cityText = cityFileStatus.textContent;
-      fileState[fgOld].zipText = zipFileStatus.textContent;
-      fileState[fgOld].erpActive = erpFileStatus.classList.contains('active');
-      fileState[fgOld].cityActive = cityFileStatus.classList.contains('active');
-      fileState[fgOld].zipActive = zipFileStatus.classList.contains('active');
+      if (currentMode === 'irrf') {
+        fileState[fgOld].sf1File = selectedSf1File;
+        fileState[fgOld].agluFile = selectedAgluFile;
+        fileState[fgOld].r4020File = selectedR4020File;
+        fileState[fgOld].sf1Text = sf1FileName ? sf1FileName.textContent : 'Nenhum arquivo selecionado';
+        fileState[fgOld].agluText = agluFileName ? agluFileName.textContent : 'Nenhum arquivo selecionado';
+        fileState[fgOld].r4020Text = r4020FileName ? r4020FileName.textContent : 'Nenhum arquivo selecionado';
+      } else {
+        fileState[fgOld].erpFile = selectedErpFile;
+        fileState[fgOld].cityFile = selectedCityFile;
+        fileState[fgOld].zipFile = selectedZipFile;
+        fileState[fgOld].erpText = erpFileStatus.textContent;
+        fileState[fgOld].cityText = cityFileStatus.textContent;
+        fileState[fgOld].zipText = zipFileStatus.textContent;
+        fileState[fgOld].erpActive = erpFileStatus.classList.contains('active');
+        fileState[fgOld].cityActive = cityFileStatus.classList.contains('active');
+        fileState[fgOld].zipActive = zipFileStatus.classList.contains('active');
+      }
 
       const mod = item.getAttribute('data-module');
       const uploadGridContainer = document.getElementById('uploadGridContainer');
       const dropzoneBalancete = document.getElementById('dropzoneBalancete');
       
-      if (mod === 'iss-prestados') {
-        currentMode = 'iss';
-        document.getElementById('moduleTitle').textContent = 'Conferência ISS - Serviços Prestados';
-        document.getElementById('moduleSub').textContent = 'Auditoria do Imposto Devido (ERP) vs ISS Apurado (Prefeitura)';
-        document.querySelector('.upload-section h2').textContent = '🏛️ Importação dos Arquivos Fiscais (ISS)';
-        document.querySelector('.modal-title-group h3').textContent = 'Conferência de ISS em Lote';
-        if (dropzoneBalancete) dropzoneBalancete.style.display = 'none';
-        if (uploadGridContainer) uploadGridContainer.classList.remove('upload-grid-3');
-      } else if (mod === 'iss-tomados') {
-        currentMode = 'iss-tomados';
-        document.getElementById('moduleTitle').textContent = 'Conferência ISS - Serviços Tomados';
-        document.getElementById('moduleSub').textContent = 'Auditoria de ISS Retido na Fonte (Tomador)';
-        document.querySelector('.upload-section h2').textContent = '🏢 Importação dos Arquivos Fiscais (Tomados)';
-        document.querySelector('.modal-title-group h3').textContent = 'Conferência de Tomados em Lote';
-        if (dropzoneBalancete) dropzoneBalancete.style.display = 'none';
-        if (uploadGridContainer) uploadGridContainer.classList.remove('upload-grid-3');
+      const mainFaturamento = document.querySelector('main.container');
+      const mainIrrf = document.querySelector('main.main-content[data-module="irrf"]');
+
+      if (mod === 'irrf') {
+        currentMode = 'irrf';
+        if (mainFaturamento) mainFaturamento.style.display = 'none';
+        if (mainIrrf) mainIrrf.style.display = 'block';
       } else {
-        currentMode = 'faturamento';
-        document.getElementById('moduleTitle').textContent = 'Conferência de Faturamento Fiscal';
-        document.getElementById('moduleSub').textContent = 'Automação e Auditoria de Notas Fiscais Emitidas (ERP vs Prefeituras)';
-        document.querySelector('.upload-section h2').textContent = '📁 Importação dos Arquivos Fiscais';
-        document.querySelector('.modal-title-group h3').textContent = 'Conferência de Faturamento em Lote';
-        if (dropzoneBalancete) dropzoneBalancete.style.display = '';
-        if (uploadGridContainer) uploadGridContainer.classList.add('upload-grid-3');
+        if (mainFaturamento) mainFaturamento.style.display = 'block';
+        if (mainIrrf) mainIrrf.style.display = 'none';
+
+        if (mod === 'iss-prestados') {
+          currentMode = 'iss';
+          document.getElementById('moduleTitle').textContent = 'Conferência ISS - Serviços Prestados';
+          document.getElementById('moduleSub').textContent = 'Auditoria do Imposto Devido (ERP) vs ISS Apurado (Prefeitura)';
+          document.querySelector('.upload-section h2').textContent = '🏛️ Importação dos Arquivos Fiscais (ISS)';
+          document.querySelector('.modal-title-group h3').textContent = 'Conferência de ISS em Lote';
+          if (dropzoneBalancete) dropzoneBalancete.style.display = 'none';
+          if (uploadGridContainer) uploadGridContainer.classList.remove('upload-grid-3');
+        } else if (mod === 'iss-tomados') {
+          currentMode = 'iss-tomados';
+          document.getElementById('moduleTitle').textContent = 'Conferência ISS - Serviços Tomados';
+          document.getElementById('moduleSub').textContent = 'Auditoria de ISS Retido na Fonte (Tomador)';
+          document.querySelector('.upload-section h2').textContent = '🏢 Importação dos Arquivos Fiscais (Tomados)';
+          document.querySelector('.modal-title-group h3').textContent = 'Conferência de Tomados em Lote';
+          if (dropzoneBalancete) dropzoneBalancete.style.display = 'none';
+          if (uploadGridContainer) uploadGridContainer.classList.remove('upload-grid-3');
+        } else {
+          currentMode = 'faturamento';
+          document.getElementById('moduleTitle').textContent = 'Conferência de Faturamento Fiscal';
+          document.getElementById('moduleSub').textContent = 'Automação e Auditoria de Notas Fiscais Emitidas (ERP vs Prefeituras)';
+          document.querySelector('.upload-section h2').textContent = '📁 Importação dos Arquivos Fiscais';
+          document.querySelector('.modal-title-group h3').textContent = 'Conferência de Faturamento em Lote';
+          if (dropzoneBalancete) dropzoneBalancete.style.display = '';
+          if (uploadGridContainer) uploadGridContainer.classList.add('upload-grid-3');
+        }
       }
       
       // Restaura o estado salvo do módulo escolhido
@@ -160,29 +197,43 @@ document.addEventListener('DOMContentLoaded', () => {
       currentBatchData = moduleState[currentMode].batchData;
       
       let fgNew = getFileGroup(currentMode);
-      selectedErpFile = fileState[fgNew].erpFile;
-      selectedCityFile = fileState[fgNew].cityFile;
-      selectedZipFile = fileState[fgNew].zipFile;
-      erpFileStatus.textContent = fileState[fgNew].erpText;
-      cityFileStatus.textContent = fileState[fgNew].cityText;
-      zipFileStatus.textContent = fileState[fgNew].zipText;
-      if (fileState[fgNew].erpActive) erpFileStatus.classList.add('active'); else erpFileStatus.classList.remove('active');
-      if (fileState[fgNew].cityActive) cityFileStatus.classList.add('active'); else cityFileStatus.classList.remove('active');
-      if (fileState[fgNew].zipActive) zipFileStatus.classList.add('active'); else zipFileStatus.classList.remove('active');
+      if (currentMode === 'irrf') {
+        selectedSf1File = fileState[fgNew].sf1File;
+        selectedAgluFile = fileState[fgNew].agluFile;
+        selectedR4020File = fileState[fgNew].r4020File;
+        if(sf1FileName) sf1FileName.textContent = fileState[fgNew].sf1Text;
+        if(agluFileName) agluFileName.textContent = fileState[fgNew].agluText;
+        if(r4020FileName) r4020FileName.textContent = fileState[fgNew].r4020Text;
 
-
-      if (currentReconciliationData) {
-        renderResults(currentReconciliationData);
+        if (currentReconciliationData) {
+          renderIrrfResults(currentReconciliationData);
+        } else {
+          document.getElementById('irrf-results').style.display = 'none';
+        }
       } else {
-        dashboardGrid.style.display = 'none';
-        const dashboardIssAudit = document.getElementById('dashboardIssAudit');
-        if (dashboardIssAudit) dashboardIssAudit.style.display = 'none';
-        const dashboardBalanceteAudit = document.getElementById('dashboardBalanceteAudit');
-        if (dashboardBalanceteAudit) dashboardBalanceteAudit.style.display = 'none';
-        resultsSection.style.display = 'none';
-        document.getElementById('uploadFormContainer').style.display = 'block';
-        document.getElementById('chartContainer').style.display = 'none';
-        tableBody.innerHTML = '';
+        selectedErpFile = fileState[fgNew].erpFile;
+        selectedCityFile = fileState[fgNew].cityFile;
+        selectedZipFile = fileState[fgNew].zipFile;
+        erpFileStatus.textContent = fileState[fgNew].erpText;
+        cityFileStatus.textContent = fileState[fgNew].cityText;
+        zipFileStatus.textContent = fileState[fgNew].zipText;
+        if (fileState[fgNew].erpActive) erpFileStatus.classList.add('active'); else erpFileStatus.classList.remove('active');
+        if (fileState[fgNew].cityActive) cityFileStatus.classList.add('active'); else cityFileStatus.classList.remove('active');
+        if (fileState[fgNew].zipActive) zipFileStatus.classList.add('active'); else zipFileStatus.classList.remove('active');
+
+        if (currentReconciliationData) {
+          renderResults(currentReconciliationData);
+        } else {
+          dashboardGrid.style.display = 'none';
+          const dashboardIssAudit = document.getElementById('dashboardIssAudit');
+          if (dashboardIssAudit) dashboardIssAudit.style.display = 'none';
+          const dashboardBalanceteAudit = document.getElementById('dashboardBalanceteAudit');
+          if (dashboardBalanceteAudit) dashboardBalanceteAudit.style.display = 'none';
+          resultsSection.style.display = 'none';
+          document.getElementById('uploadFormContainer').style.display = 'block';
+          document.getElementById('chartContainer').style.display = 'none';
+          tableBody.innerHTML = '';
+        }
       }
       
       // Nota: Não chamamos mais btnResetAll.click() para preservar os arquivos selecionados
@@ -1146,6 +1197,173 @@ document.addEventListener('DOMContentLoaded', () => {
 
       tableBody.appendChild(tr);
     });
+  }
+
+  if (sf1FileInput) {
+    sf1FileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        selectedSf1File = e.target.files[0];
+        sf1FileName.textContent = `📊 ${selectedSf1File.name}`;
+      }
+    });
+  }
+  if (agluFileInput) {
+    agluFileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        selectedAgluFile = e.target.files[0];
+        agluFileName.textContent = `📄 ${selectedAgluFile.name}`;
+      }
+    });
+  }
+  if (r4020FileInput) {
+    r4020FileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        selectedR4020File = e.target.files[0];
+        r4020FileName.textContent = `📝 ${selectedR4020File.name}`;
+      }
+    });
+  }
+
+  if (btnStartIrrfAudit) {
+    btnStartIrrfAudit.addEventListener('click', async () => {
+      if (!selectedSf1File || !selectedAgluFile || !selectedR4020File) {
+        alert('Por favor, selecione os três relatórios (SF1, Aglutinação e R-4020) antes de iniciar a conferência de IRRF.');
+        return;
+      }
+
+      startSmoothProgress(
+        `Auditoria de IRRF`,
+        [
+          'Lendo relatório base do ERP (SF1)...',
+          'Lendo espelho de Aglutinação e R-4020...',
+          'Cruzando informações (Nº do Documento, CNPJ)...',
+          'Apurando divergências de Retenção de IRRF...'
+        ]
+      );
+
+      try {
+        const formData = new FormData();
+        formData.append('sf1_file', selectedSf1File);
+        formData.append('aglu_file', selectedAgluFile);
+        formData.append('r4020_file', selectedR4020File);
+
+        let response;
+        try {
+          response = await fetch('/api/reconcile-irrf', { method: 'POST', body: formData });
+        } catch (err) {
+          hideProgressModal();
+          alert('Erro ao conectar com o servidor para IRRF.');
+          return;
+        }
+
+        const data = await response.json();
+        await finishSmoothProgress();
+
+        if (data.success) {
+          currentReconciliationData = data.result;
+          renderIrrfResults(data.result);
+        } else {
+          alert(data.error || 'Falha na auditoria de IRRF.');
+        }
+      } catch (err) {
+        hideProgressModal();
+        alert('Erro inesperado: ' + (err.message || err));
+      }
+    });
+  }
+
+  function renderIrrfResults(result) {
+    const container = document.getElementById('irrf-results');
+    if (!container) return;
+    
+    let totalSf1 = 0;
+    let totalAglu = 0;
+    let totalR4020 = 0;
+    result.detalhes.forEach(item => {
+      totalSf1 += item.irrf_sf1;
+      totalAglu += item.irrf_aglu;
+      totalR4020 += item.irrf_r4020;
+    });
+
+    let html = `
+      <section class="dashboard-grid" style="margin-bottom: 20px;">
+        <div class="glass-panel stat-card">
+          <div class="stat-title">Total Auditado (ERP)</div>
+          <div class="stat-value" style="font-size: 20px;">${formatCurrency(totalSf1)}</div>
+          <div class="stat-sub">${result.total} documentos analisados</div>
+        </div>
+        <div class="glass-panel stat-card conciliados">
+          <div class="stat-title">100% Conciliado</div>
+          <div class="stat-value" style="color: var(--status-success-text); font-size: 20px;">${result.conciliados}</div>
+          <div class="stat-sub">Sem divergências (3 pontas batem)</div>
+        </div>
+        <div class="glass-panel stat-card divergentes">
+          <div class="stat-title">Divergentes</div>
+          <div class="stat-value" style="color: var(--status-danger-text); font-size: 20px;">${result.divergentes}</div>
+          <div class="stat-sub">Valores não batem</div>
+        </div>
+        <div class="glass-panel stat-card sobras">
+          <div class="stat-title">Ausentes</div>
+          <div class="stat-value" style="color: var(--status-warning-text); font-size: 20px;">${result.ausentes}</div>
+          <div class="stat-sub">Faltam em um dos relatórios</div>
+        </div>
+      </section>
+      
+      <div class="results-header" style="margin-bottom: 12px; display:flex; justify-content: space-between;">
+          <h3 style="color: var(--text-light);">Detalhamento da Conciliação IRRF</h3>
+      </div>
+      
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Documento</th>
+              <th>CNPJ</th>
+              <th>Razão Social</th>
+              <th>IRRF SF1 (R$)</th>
+              <th>IRRF Aglu. (R$)</th>
+              <th>IRRF R-4020 (R$)</th>
+              <th>Diferença (R$)</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    result.detalhes.forEach(item => {
+      let statusBadge = '';
+      if (item.status === 'Conciliado') statusBadge = '<span class="badge badge-matched">🟢 Conciliado</span>';
+      else if (item.status === 'Ausente') statusBadge = '<span class="badge badge-erp-only">⚠️ Ausente</span>';
+      else statusBadge = '<span class="badge badge-divergent">🔴 Divergência</span>';
+
+      let max_irrf = Math.max(item.irrf_sf1, item.irrf_aglu, item.irrf_r4020);
+      let min_irrf = Math.min(item.irrf_sf1, item.irrf_aglu, item.irrf_r4020);
+      let diff = max_irrf - min_irrf;
+
+      html += `
+        <tr>
+          <td>${statusBadge}</td>
+          <td><strong>${item.numero}</strong></td>
+          <td>${item.cnpj}</td>
+          <td>${item.razao}</td>
+          <td>${formatCurrency(item.irrf_sf1)}</td>
+          <td>${formatCurrency(item.irrf_aglu)}</td>
+          <td>${formatCurrency(item.irrf_r4020)}</td>
+          <td style="color: ${diff > 0.04 ? 'var(--status-danger-text)' : 'var(--text-muted)'}; font-weight: bold;">
+            ${formatCurrency(diff)}
+          </td>
+        </tr>
+      `;
+    });
+
+    html += \`
+          </tbody>
+        </table>
+      </div>
+    \`;
+
+    container.innerHTML = html;
+    container.style.display = 'block';
   }
 
   tabGroup.querySelectorAll('.tab-btn').forEach(btn => {

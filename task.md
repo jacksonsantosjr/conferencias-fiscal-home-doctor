@@ -11,3 +11,4 @@
 - [x] Versionamento Git Completo e Push realizado para `https://github.com/jacksonsantosjr/conferencias-fiscal-home-doctor` (`branch main`) <!-- id: 8 -->
 - [x] Documentação de Uso e Relatório Walkthrough (`walkthrough.md`) <!-- id: 9 -->
 - [x] Refinamento da lógica de ISS Retido para Belo Horizonte no módulo ISS Serv. Prestados <!-- id: 10 -->
+- [x] Separação dos módulos IRRF e CSRF (PCC) na Sidebar da Interface <!-- id: 11 -->

@@ -47,9 +47,15 @@
           <span class="nav-text">ISS Serv. Tomados</span>
         </a>
 
-        <a href="#" class="nav-item disabled" data-module="irrf-csrf" title="IRRF / CSRF (PCC) (Em breve)">
+        <a href="#" class="nav-item disabled" data-module="irrf" title="IRRF (Em breve)">
           <span class="nav-icon">🛡️</span>
-          <span class="nav-text">IRRF / CSRF (PCC)</span>
+          <span class="nav-text">IRRF</span>
+          <span class="badge-soon">Em breve</span>
+        </a>
+
+        <a href="#" class="nav-item disabled" data-module="csrf" title="CSRF (PCC) (Em breve)">
+          <span class="nav-icon">⚖️</span>
+          <span class="nav-text">CSRF (PCC)</span>
           <span class="badge-soon">Em breve</span>
         </a>
 
@@ -299,7 +305,53 @@
           </div>
         </section>
 
-      </main>
+        </main>
+
+        <!-- Painel Central - IRRF -->
+        <main class="main-content" data-module="irrf" style="display: none;">
+            <header class="topbar">
+                <h1>Conciliação de IRRF</h1>
+                <p>Cruze os relatórios de retenção de IRRF para a geração da guia via DCTFWeb.</p>
+            </header>
+
+            <section class="upload-section">
+                <div class="upload-card">
+                    <div class="upload-icon">📊</div>
+                    <h3>Relatório SF1</h3>
+                    <p>Base primária do ERP (Excel)</p>
+                    <input type="file" id="sf1-file" accept=".xlsx, .xls">
+                    <label for="sf1-file" class="upload-btn">Selecionar Arquivo</label>
+                    <span class="file-name" id="sf1-name">Nenhum arquivo selecionado</span>
+                </div>
+
+                <div class="upload-card">
+                    <div class="upload-icon">📄</div>
+                    <h3>Previsão de Aglutinação</h3>
+                    <p>Relatório intermediário (PDF)</p>
+                    <input type="file" id="aglu-file" accept=".pdf">
+                    <label for="aglu-file" class="upload-btn">Selecionar Arquivo</label>
+                    <span class="file-name" id="aglu-name">Nenhum arquivo selecionado</span>
+                </div>
+
+                <div class="upload-card">
+                    <div class="upload-icon">📝</div>
+                    <h3>Relatório R-4020</h3>
+                    <p>Base final REINF (Excel)</p>
+                    <input type="file" id="r4020-file" accept=".xlsx, .xls">
+                    <label for="r4020-file" class="upload-btn">Selecionar Arquivo</label>
+                    <span class="file-name" id="r4020-name">Nenhum arquivo selecionado</span>
+                </div>
+            </section>
+
+            <div class="action-bar">
+                <button id="reconcile-irrf-btn" class="primary-btn">Iniciar Conciliação</button>
+            </div>
+
+            <!-- Dashboard de Resultados -->
+            <section class="results-dashboard" id="irrf-results" style="display: none;">
+                <!-- O conteúdo será injetado dinamicamente via JS (mesmo padrão do ISS) -->
+            </section>
+        </main>
     </div>
   </div>
 
