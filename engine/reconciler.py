@@ -17,8 +17,50 @@ class ReconciliationEngine:
         used_city_indices = set()
         unmatched_city = list(city_items)
 
-        # Passo 1: Busca por correspondência 1 a 1 por valor (com tolerância)
+        def _normalize_num(num):
+            if not num: return ""
+            s = "".join(c for c in str(num) if c.isdigit())
+            return s.lstrip("0")
+
+        # Passo 1A: Busca por correspondência exata de Número E Valor (com tolerância)
         for erp in erp_items:
+            best_idx = None
+            min_diff = float("inf")
+            erp_num = _normalize_num(erp.get("nf_num", ""))
+
+            for idx, city in enumerate(unmatched_city):
+                if idx in used_city_indices:
+                    continue
+                
+                city_num = _normalize_num(city.get("numero", ""))
+                if erp_num and city_num and erp_num == city_num:
+                    diff = abs(erp["valor"] - city["valor"])
+                    if diff <= self.tolerance and diff < min_diff:
+                        min_diff = diff
+                        best_idx = idx
+
+            if best_idx is not None:
+                used_city_indices.add(best_idx)
+                city_match = unmatched_city[best_idx]
+                
+                status = "CONCILIADO" if min_diff == 0 else "TOLERANCIA"
+                matched.append({
+                    "id": f"MATCH-{len(matched)+1}",
+                    "erp": erp,
+                    "prefeitura": city_match,
+                    "valor_erp": erp["valor"],
+                    "valor_prefeitura": city_match["valor"],
+                    "diferenca": round(min_diff, 2),
+                    "status": status,
+                    "detalhe": "Valores coincidentes (casamento por N° Nota)" if status == "CONCILIADO" else f"Diferença de R$ {min_diff:.2f} dentro da tolerância (casamento por N° Nota)"
+                })
+                erp["_matched_1a"] = True
+
+        # Passo 1B: Busca por correspondência apenas por Valor (Fallback)
+        for erp in erp_items:
+            if erp.get("_matched_1a"):
+                continue
+                
             best_idx = None
             min_diff = float("inf")
 
@@ -44,7 +86,7 @@ class ReconciliationEngine:
                     "valor_prefeitura": city_match["valor"],
                     "diferenca": round(min_diff, 2),
                     "status": status,
-                    "detalhe": "Valores coincidentes perfeitamente" if status == "CONCILIADO" else f"Diferença de R$ {min_diff:.2f} dentro da tolerância (R$ {self.tolerance:.2f})"
+                    "detalhe": "Valores coincidentes (fallback por Valor)" if status == "CONCILIADO" else f"Diferença de R$ {min_diff:.2f} dentro da tolerância (fallback por Valor)"
                 })
 
         # Identifica sobrantes temporários
