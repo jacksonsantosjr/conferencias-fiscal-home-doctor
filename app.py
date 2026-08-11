@@ -672,11 +672,15 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                             
                 qtd_retidas_erp = sum(1 for e in erp_items if float(e.get("valor_iss", 0.0) or 0.0) > 0)
                 qtd_retidas_pref = sum(1 for c in city_items if _is_retido(c))
+                
+                qtd_sobras_erp_retidas = sum(1 for e in result.get("somente_erp", []) if float(e.get("valor_iss", 0.0) or 0.0) > 0)
+                qtd_sobras_pref_retidas = sum(1 for c in result.get("somente_prefeitura", []) if _is_retido(c))
+                qtd_total_unicas_retidas = qtd_analisada + qtd_sobras_erp_retidas + qtd_sobras_pref_retidas
 
                 if len(divergencias_iss) > 0 or total_iss_erp > 0 or total_iss_pref > 0:
                     result["auditoria_iss"] = {
                         "ativo": True,
-                        "qtd_analisada": qtd_analisada,
+                        "qtd_analisada": qtd_total_unicas_retidas,
                         "qtd_retidas_erp": qtd_retidas_erp,
                         "qtd_retidas_pref": qtd_retidas_pref,
                         "total_iss_erp": round(total_iss_erp, 2),
