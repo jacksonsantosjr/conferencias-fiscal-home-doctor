@@ -42,6 +42,7 @@ from parsers.salvador_parser import SalvadorParser
 from parsers.belo_horizonte_parser import BeloHorizonteParser
 from parsers.goiania_parser import GoianiaParser
 from parsers.aracaju_parser import AracajuParser
+from parsers.balancete_parser import BalanceteParser
 from engine.reconciler import ReconciliationEngine
 
 PORT = 8000
@@ -79,14 +80,19 @@ def parse_multipart_data(data: bytes, boundary: bytes) -> Dict[str, Any]:
                 content = content[:-2]
             header_text = header_part.decode('latin1', errors='replace')
             name = None
+            filename = None
             for line in header_text.split('\r\n'):
                 if 'Content-Disposition:' in line:
                     for item in line.split(';'):
                         item = item.strip()
                         if item.startswith('name='):
                             name = item.split('=', 1)[1].strip('"\'')
+                        elif item.startswith('filename='):
+                            filename = item.split('=', 1)[1].strip('"\'')
             if name:
                 fields[name] = content
+                if filename:
+                    fields[f"{name}_filename"] = filename
     return fields
 
 
@@ -547,6 +553,10 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
 
             file1_bytes = fields.get('erp_file')
             file2_bytes = fields.get('city_file')
+            balancete_bytes = fields.get('balancete_file')
+            balancete_filename = fields.get('balancete_file_filename', '')
+            if isinstance(balancete_filename, bytes):
+                balancete_filename = balancete_filename.decode('utf-8', errors='replace')
             city_param = fields.get('city', b'Recife').decode('utf-8', errors='replace')
             city_norm = city_param.lower()
 
@@ -690,6 +700,28 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                         "valor_divergencias": round(abs(total_iss_erp - total_iss_pref), 2),
                         "detalhes": divergencias_iss
                     }
+                    
+            if balancete_bytes:
+                balancete_parser = BalanceteParser()
+                total_balancete = balancete_parser.parse(balancete_bytes, balancete_filename)
+                
+                if total_balancete is not None:
+                    # Comparar com os totais já existentes no result
+                    total_erp_faturamento = sum(float(e.get("valor", 0.0) or 0.0) for e in erp_items)
+                    total_pref_faturamento = sum(float(c.get("valor", 0.0) or 0.0) for c in city_items)
+                    
+                    diff_erp = abs(total_balancete - total_erp_faturamento)
+                    diff_pref = abs(total_balancete - total_pref_faturamento)
+                    
+                    result["auditoria_balancete"] = {
+                        "ativo": True,
+                        "total_balancete": round(total_balancete, 2),
+                        "total_erp": round(total_erp_faturamento, 2),
+                        "total_prefeitura": round(total_pref_faturamento, 2),
+                        "diferenca_erp": round(diff_erp, 2),
+                        "diferenca_prefeitura": round(diff_pref, 2)
+                    }
+
             self.send_json_response({"success": True, "result": result})
 
         except Exception as e:

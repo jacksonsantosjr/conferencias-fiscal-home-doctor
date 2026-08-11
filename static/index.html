@@ -119,12 +119,12 @@
               Selecione os relatórios para a prefeitura selecionada ou execute a conferência em lote de todas as cidades.
             </p>
 
-            <div class="upload-grid">
+            <div class="upload-grid upload-grid-3" id="uploadGridContainer">
               <!-- Dropzone ERP -->
               <div class="dropzone" id="dropzoneErp">
                 <div class="dropzone-icon">📊</div>
                 <h3>Relatório do ERP</h3>
-                <p>Selecione o relatório emitido pelo ERP (PDF, CSV, XLSX ou XLS)</p>
+                <p>Selecione o relatório emitido pelo ERP</p>
                 <div class="file-status" id="erpFileStatus">Nenhum arquivo selecionado</div>
                 <input type="file" id="erpFileInput" accept=".pdf,.csv,.xlsx,.xls,.txt">
               </div>
@@ -133,17 +133,24 @@
               <div class="dropzone" id="dropzoneCity">
                 <div class="dropzone-icon">🏛️</div>
                 <h3>Relatório da Prefeitura</h3>
-                <p>Selecione o relatório oficial da Prefeitura (PDF, CSV, XLSX ou XLS)</p>
+                <p>Selecione o relatório oficial da Prefeitura</p>
                 <div class="file-status" id="cityFileStatus">Nenhum arquivo selecionado</div>
                 <input type="file" id="cityFileInput" accept=".pdf,.csv,.xlsx,.xls,.txt">
+              </div>
+
+              <!-- Dropzone Balancete -->
+              <div class="dropzone" id="dropzoneBalancete">
+                <div class="dropzone-icon">📑</div>
+                <h3>Balancete Contábil</h3>
+                <p>Importe o balancete para auditar a conta de Receita</p>
+                <div class="file-status" id="balanceteFileStatus">Nenhum arquivo selecionado</div>
+                <input type="file" id="balanceteFileInput" accept=".pdf,.csv,.xlsx,.xls,.txt">
               </div>
             </div>
 
             <div class="action-bar">
               <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <button type="button" class="btn-demo" id="btnLoadDemo">
-                  ⚡ Usar Arquivos de Modelo
-                </button>
+
                 <button type="button" class="btn-batch" id="btnBatchModal" title="Abrir Painel de Conferência em Lote de Todas as Prefeituras">
                   📦 Conferência em Lote
                 </button>
@@ -195,6 +202,27 @@
             <div class="stat-title">Assertividade</div>
             <div class="stat-value" id="statAccuracy" style="color: var(--status-info-text);">0%</div>
             <div class="stat-sub" id="statToleranceInfo">Tolerância: R$ 0,04</div>
+          </div>
+        </section>
+
+        <!-- Dashboard Auditoria Balancete (Oculto inicialmente) -->
+        <section class="dashboard-grid" id="dashboardBalanceteAudit" style="display: none; margin-top: 6px;">
+          <div class="glass-panel stat-card" style="border-left: 4px solid var(--accent-color);">
+            <div class="stat-title">Total Balancete</div>
+            <div class="stat-value" id="statBalanceteTotal" style="color: var(--accent-color);">R$ 0,00</div>
+            <div class="stat-sub">Serviços Prestados (Mov. Período)</div>
+          </div>
+
+          <div class="glass-panel stat-card" id="cardBalanceteDivErp">
+            <div class="stat-title">Divergência: Balancete vs ERP</div>
+            <div class="stat-value" id="statBalanceteDivErp">R$ 0,00</div>
+            <div class="stat-sub" id="statBalanceteDiffErpText">Diferença para o ERP</div>
+          </div>
+
+          <div class="glass-panel stat-card" id="cardBalanceteDivPref">
+            <div class="stat-title">Divergência: Balancete vs Pref.</div>
+            <div class="stat-value" id="statBalanceteDivPref">R$ 0,00</div>
+            <div class="stat-sub" id="statBalanceteDiffPrefText">Diferença para a Prefeitura</div>
           </div>
         </section>
 

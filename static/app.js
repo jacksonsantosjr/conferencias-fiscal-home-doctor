@@ -16,11 +16,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const dropzoneCity = document.getElementById('dropzoneCity');
   const erpFileInput = document.getElementById('erpFileInput');
   const cityFileInput = document.getElementById('cityFileInput');
+  const balanceteFileInput = document.getElementById('balanceteFileInput');
   const erpFileStatus = document.getElementById('erpFileStatus');
   const cityFileStatus = document.getElementById('cityFileStatus');
+  const balanceteFileStatus = document.getElementById('balanceteFileStatus');
   
   const btnStartAudit = document.getElementById('btnStartAudit');
-  const btnLoadDemo = document.getElementById('btnLoadDemo');
+
   const btnResetAll = document.getElementById('btnResetAll');
   const btnBatchModal = document.getElementById('btnBatchModal');
 
@@ -124,24 +126,33 @@ document.addEventListener('DOMContentLoaded', () => {
       fileState[fgOld].zipActive = zipFileStatus.classList.contains('active');
 
       const mod = item.getAttribute('data-module');
+      const uploadGridContainer = document.getElementById('uploadGridContainer');
+      const dropzoneBalancete = document.getElementById('dropzoneBalancete');
+      
       if (mod === 'iss-prestados') {
         currentMode = 'iss';
         document.getElementById('moduleTitle').textContent = 'Conferência ISS - Serviços Prestados';
         document.getElementById('moduleSub').textContent = 'Auditoria do Imposto Devido (ERP) vs ISS Apurado (Prefeitura)';
         document.querySelector('.upload-section h2').textContent = '🏛️ Importação dos Arquivos Fiscais (ISS)';
         document.querySelector('.modal-title-group h3').textContent = 'Conferência de ISS em Lote';
+        if (dropzoneBalancete) dropzoneBalancete.style.display = 'none';
+        if (uploadGridContainer) uploadGridContainer.classList.remove('upload-grid-3');
       } else if (mod === 'iss-tomados') {
         currentMode = 'iss-tomados';
         document.getElementById('moduleTitle').textContent = 'Conferência ISS - Serviços Tomados';
         document.getElementById('moduleSub').textContent = 'Auditoria de ISS Retido na Fonte (Tomador)';
         document.querySelector('.upload-section h2').textContent = '🏢 Importação dos Arquivos Fiscais (Tomados)';
         document.querySelector('.modal-title-group h3').textContent = 'Conferência de Tomados em Lote';
+        if (dropzoneBalancete) dropzoneBalancete.style.display = 'none';
+        if (uploadGridContainer) uploadGridContainer.classList.remove('upload-grid-3');
       } else {
         currentMode = 'faturamento';
         document.getElementById('moduleTitle').textContent = 'Conferência de Faturamento Fiscal';
         document.getElementById('moduleSub').textContent = 'Automação e Auditoria de Notas Fiscais Emitidas (ERP vs Prefeituras)';
         document.querySelector('.upload-section h2').textContent = '📁 Importação dos Arquivos Fiscais';
         document.querySelector('.modal-title-group h3').textContent = 'Conferência de Faturamento em Lote';
+        if (dropzoneBalancete) dropzoneBalancete.style.display = '';
+        if (uploadGridContainer) uploadGridContainer.classList.add('upload-grid-3');
       }
       
       // Restaura o estado salvo do módulo escolhido
@@ -166,6 +177,8 @@ document.addEventListener('DOMContentLoaded', () => {
         dashboardGrid.style.display = 'none';
         const dashboardIssAudit = document.getElementById('dashboardIssAudit');
         if (dashboardIssAudit) dashboardIssAudit.style.display = 'none';
+        const dashboardBalanceteAudit = document.getElementById('dashboardBalanceteAudit');
+        if (dashboardBalanceteAudit) dashboardBalanceteAudit.style.display = 'none';
         resultsSection.style.display = 'none';
         document.getElementById('uploadFormContainer').style.display = 'block';
         document.getElementById('chartContainer').style.display = 'none';
@@ -203,7 +216,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // ========================================================
   // CONFIGURAÇÃO DOS DRAG & DROP E FILE INPUTS
   // ========================================================
-  [dropzoneErp, dropzoneCity, dropzoneZip].forEach(zone => {
+  const dropzoneBalancete = document.getElementById('dropzoneBalancete');
+  [dropzoneErp, dropzoneCity, dropzoneZip, dropzoneBalancete].forEach(zone => {
     if (!zone) return;
     zone.addEventListener('dragover', (e) => {
       e.preventDefault();
@@ -235,6 +249,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  if (dropzoneBalancete) {
+    dropzoneBalancete.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzoneBalancete.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        balanceteFileInput.files = e.dataTransfer.files;
+        balanceteFileStatus.textContent = `📑 ${e.dataTransfer.files[0].name}`;
+        balanceteFileStatus.classList.add('active');
+      }
+    });
+  }
+
   dropzoneZip.addEventListener('drop', (e) => {
     e.preventDefault();
     dropzoneZip.classList.remove('dragover');
@@ -244,6 +270,13 @@ document.addEventListener('DOMContentLoaded', () => {
       zipFileStatus.classList.add('active');
     }
   });
+
+  dropzoneErp.addEventListener('click', () => erpFileInput.click());
+  dropzoneCity.addEventListener('click', () => cityFileInput.click());
+  dropzoneZip.addEventListener('click', () => zipFileInput.click());
+  if (dropzoneBalancete) {
+    dropzoneBalancete.addEventListener('click', () => balanceteFileInput.click());
+  }
 
   erpFileInput.addEventListener('change', (e) => {
     if (e.target.files.length) {
@@ -260,6 +293,15 @@ document.addEventListener('DOMContentLoaded', () => {
       cityFileStatus.classList.add('active');
     }
   });
+
+  if (balanceteFileInput) {
+    balanceteFileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        balanceteFileStatus.textContent = `📑 ${e.target.files[0].name}`;
+        balanceteFileStatus.classList.add('active');
+      }
+    });
+  }
 
   zipFileInput.addEventListener('change', (e) => {
     if (e.target.files.length) {
@@ -461,78 +503,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ========================================================
   // CONFERÊNCIA INDIVIDUAL (CIDADE SELECIONADA)
   // ========================================================
-  btnLoadDemo.addEventListener('click', async () => {
-    const selectedCity = document.getElementById('citySelect').value;
-    if (!selectedCity) {
-      alert('Por favor, selecione uma prefeitura antes de continuar.');
-      return;
-    }
-    startSmoothProgress(
-      `Demonstração: Prefeitura de ${selectedCity}`,
-      [
-        'Carregando modelo oficial do ERP e Prefeitura...',
-        'Executando regras de conciliação e margem de R$ 0,04...',
-        'Cruzando notas fiscais e verificando divergências...',
-        'Gerando relatório final...'
-      ]
-    );
 
-    try {
-      const endpoint = currentMode === 'iss' ? '/api/reconcile-iss-demo' : currentMode === 'iss-tomados' ? '/api/reconcile-iss-tomados-demo' : '/api/reconcile-demo';
-      let response;
-      try {
-        response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ city: selectedCity })
-        });
-      } catch (firstErr) {
-        console.warn('[Demo] 1ª tentativa falhou, retry...', firstErr);
-        await new Promise(r => setTimeout(r, 500));
-        response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ city: selectedCity })
-        });
-      }
-
-      let responseText;
-      try {
-        responseText = await response.text();
-      } catch (readErr) {
-        console.error('[Demo] Erro ao ler resposta:', readErr);
-        if (activeProgressTimer) clearInterval(activeProgressTimer);
-        hideProgressModal();
-        alert('Erro ao ler a resposta do servidor. Tente novamente.');
-        return;
-      }
-
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (jsonErr) {
-        console.error('[Demo] Resposta não é JSON válido:', responseText.substring(0, 500), jsonErr);
-        if (activeProgressTimer) clearInterval(activeProgressTimer);
-        hideProgressModal();
-        alert('Resposta inválida do servidor. Tente novamente.');
-        return;
-      }
-
-      await finishSmoothProgress();
-
-      if (data.success) {
-        currentReconciliationData = data.result;
-        renderResults(data.result);
-      } else {
-        alert(data.error || 'Erro ao processar modelo.');
-      }
-    } catch (err) {
-      console.error('[Demo] Erro inesperado:', err);
-      if (activeProgressTimer) clearInterval(activeProgressTimer);
-      hideProgressModal();
-      alert('Erro inesperado: ' + (err.message || err));
-    }
-  });
 
   btnStartAudit.addEventListener('click', async () => {
     const selectedCity = document.getElementById('citySelect').value;
@@ -557,8 +528,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const formData = new FormData();
-      formData.append('erp_file', selectedErpFile);
-      formData.append('city_file', selectedCityFile);
+      formData.append('erp_file', erpFileInput.files[0]);
+      formData.append('city_file', cityFileInput.files[0]);
+      if (currentMode === 'faturamento' && balanceteFileInput && balanceteFileInput.files.length > 0) {
+        formData.append('balancete_file', balanceteFileInput.files[0]);
+      }
       formData.append('city', selectedCity);
 
       const endpoint = currentMode === 'iss' ? '/api/reconcile-iss' : currentMode === 'iss-tomados' ? '/api/reconcile-iss-tomados' : '/api/reconcile';
@@ -623,6 +597,11 @@ document.addEventListener('DOMContentLoaded', () => {
     currentReconciliationData = null;
     erpFileInput.value = '';
     cityFileInput.value = '';
+    if (balanceteFileInput) {
+      balanceteFileInput.value = '';
+      balanceteFileStatus.textContent = 'Nenhum arquivo selecionado';
+      balanceteFileStatus.classList.remove('active');
+    }
     erpFileStatus.textContent = 'Nenhum arquivo selecionado';
     cityFileStatus.textContent = 'Nenhum arquivo selecionado';
     erpFileStatus.classList.remove('active');
@@ -630,6 +609,8 @@ document.addEventListener('DOMContentLoaded', () => {
     dashboardGrid.style.display = 'none';
     const dashboardIssAudit = document.getElementById('dashboardIssAudit');
     if (dashboardIssAudit) dashboardIssAudit.style.display = 'none';
+    const dashboardBalanceteAudit = document.getElementById('dashboardBalanceteAudit');
+    if (dashboardBalanceteAudit) dashboardBalanceteAudit.style.display = 'none';
     resultsSection.style.display = 'none';
     document.getElementById('uploadFormContainer').style.display = 'block';
     document.getElementById('chartContainer').style.display = 'none';
@@ -826,6 +807,50 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderResults(result) {
     result = normalizeResult(result);
     const resumo = result.resumo;
+    
+    // Lógica do dashboard do Balancete
+    if (result.auditoria_balancete && result.auditoria_balancete.ativo) {
+      document.getElementById('dashboardBalanceteAudit').style.display = 'grid';
+      
+      document.getElementById('statBalanceteTotal').textContent = formatCurrency(result.auditoria_balancete.total_balancete);
+      
+      const cardErp = document.getElementById('cardBalanceteDivErp');
+      const cardPref = document.getElementById('cardBalanceteDivPref');
+      const statErp = document.getElementById('statBalanceteDivErp');
+      const statPref = document.getElementById('statBalanceteDivPref');
+      const diffErpText = document.getElementById('statBalanceteDiffErpText');
+      const diffPrefText = document.getElementById('statBalanceteDiffPrefText');
+      
+      statErp.textContent = formatCurrency(result.auditoria_balancete.diferenca_erp);
+      statPref.textContent = formatCurrency(result.auditoria_balancete.diferenca_prefeitura);
+      
+      if (result.auditoria_balancete.diferenca_erp > 0.04) {
+        cardErp.classList.add('divergentes');
+        statErp.style.color = 'var(--status-danger-text)';
+        diffErpText.textContent = `Faturamento ERP: ${formatCurrency(result.auditoria_balancete.total_erp)}`;
+      } else {
+        cardErp.classList.remove('divergentes');
+        statErp.style.color = 'var(--status-success-text)';
+        diffErpText.textContent = 'Sem divergência com ERP';
+      }
+
+      if (result.auditoria_balancete.diferenca_prefeitura > 0.04) {
+        cardPref.classList.add('divergentes');
+        statPref.style.color = 'var(--status-danger-text)';
+        diffPrefText.textContent = `Apurado Pref: ${formatCurrency(result.auditoria_balancete.total_prefeitura)}`;
+      } else {
+        cardPref.classList.remove('divergentes');
+        statPref.style.color = 'var(--status-success-text)';
+        diffPrefText.textContent = 'Sem divergência com Prefeitura';
+      }
+    } else {
+      const balBoard = document.getElementById('dashboardBalanceteAudit');
+      if (balBoard) balBoard.style.display = 'none';
+    }
+
+    // Preenche os cards de resumo geral
+    const statAuditCountEl = document.getElementById('statAuditCount');
+    if (statAuditCountEl) statAuditCountEl.textContent = `${result.qtd_total_unicas} notas analisadas`;
     document.getElementById('statTotalAudited').textContent = formatCurrency(resumo.total_erp_valor);
     document.getElementById('statTotalCount').textContent = `${resumo.total_erp_qtd} notas no ERP | ${resumo.total_prefeitura_qtd} na Prefeitura`;
 
@@ -833,6 +858,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('statMatchedCount').textContent = `${resumo.conciliados_qtd} notas coincidentes`;
 
     document.getElementById('statDivergentVal').textContent = formatCurrency(resumo.divergentes_valor);
+
     document.getElementById('statDivergentCount').textContent = `${resumo.divergentes_qtd} notas com diferença > R$ 0,04`;
 
     document.getElementById('statAccuracy').textContent = `${resumo.taxa_assertividade}%`;
