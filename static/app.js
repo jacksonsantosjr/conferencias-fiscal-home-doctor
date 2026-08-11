@@ -858,7 +858,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const statIssRetidasCount = document.getElementById('statIssRetidasCount');
       if (statIssRetidasCount && result.auditoria_iss.qtd_retidas_erp !== undefined) {
-        statIssRetidasCount.textContent = `${result.auditoria_iss.qtd_retidas_erp} notas no ERP | ${result.auditoria_iss.qtd_retidas_pref} na Prefeitura`;
+        statIssRetidasCount.textContent = `${result.auditoria_iss.qtd_retidas_erp} notas no ERP | ${result.auditoria_iss.qtd_retidas_pref} na Prefeitura (${result.auditoria_iss.qtd_conciliadas} coincidentes)`;
       }
       divVal.textContent = formatCurrency(result.auditoria_iss.valor_divergencias);
       

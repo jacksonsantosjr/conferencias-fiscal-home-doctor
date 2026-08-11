@@ -681,6 +681,7 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                     result["auditoria_iss"] = {
                         "ativo": True,
                         "qtd_analisada": qtd_total_unicas_retidas,
+                        "qtd_conciliadas": qtd_analisada,
                         "qtd_retidas_erp": qtd_retidas_erp,
                         "qtd_retidas_pref": qtd_retidas_pref,
                         "total_iss_erp": round(total_iss_erp, 2),
