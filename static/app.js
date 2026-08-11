@@ -858,7 +858,13 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const statIssRetidasCount = document.getElementById('statIssRetidasCount');
       if (statIssRetidasCount && result.auditoria_iss.qtd_retidas_erp !== undefined) {
-        statIssRetidasCount.textContent = `${result.auditoria_iss.qtd_retidas_erp} notas no ERP | ${result.auditoria_iss.qtd_retidas_pref} na Prefeitura (${result.auditoria_iss.qtd_conciliadas} coincidentes)`;
+        const erp = result.auditoria_iss.qtd_retidas_erp;
+        const pref = result.auditoria_iss.qtd_retidas_pref;
+        const conc = result.auditoria_iss.qtd_conciliadas;
+        const pendentes = result.auditoria_iss.qtd_analisada - conc;
+        const pendentesText = pendentes === 0 ? "todas conciliadas" : `${pendentes} pendente${pendentes > 1 ? 's' : ''}`;
+        
+        statIssRetidasCount.textContent = `${erp} no ERP | ${pref} na Pref. (${conc} conciliadas, ${pendentesText})`;
       }
       divVal.textContent = formatCurrency(result.auditoria_iss.valor_divergencias);
       
