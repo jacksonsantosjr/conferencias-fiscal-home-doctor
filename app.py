@@ -676,7 +676,7 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                 if len(divergencias_iss) > 0 or total_iss_erp > 0 or total_iss_pref > 0:
                     result["auditoria_iss"] = {
                         "ativo": True,
-                        "qtd_analisada": max(qtd_retidas_erp, qtd_retidas_pref),
+                        "qtd_analisada": qtd_analisada,
                         "qtd_retidas_erp": qtd_retidas_erp,
                         "qtd_retidas_pref": qtd_retidas_pref,
                         "total_iss_erp": round(total_iss_erp, 2),
