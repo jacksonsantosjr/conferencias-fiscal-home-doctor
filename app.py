@@ -670,15 +670,21 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                             match["detalhe"] += f" | ⚠️ Atenção: Div. no ISS de R$ {diff:.2f}"
                             match["status"] = "TOLERANCIA" # Muda a cor pra laranjinha se der diferença de ISS
                             
-                result["auditoria_iss"] = {
-                    "ativo": True,
-                    "qtd_analisada": qtd_analisada,
-                    "total_iss_erp": round(total_iss_erp, 2),
-                    "total_iss_prefeitura": round(total_iss_pref, 2),
-                    "qtd_divergencias": len(divergencias_iss),
-                    "valor_divergencias": round(abs(total_iss_erp - total_iss_pref), 2),
-                    "detalhes": divergencias_iss
-                }
+                qtd_retidas_erp = sum(1 for e in erp_items if float(e.get("valor_iss", 0.0) or 0.0) > 0)
+                qtd_retidas_pref = sum(1 for c in city_items if _is_retido(c))
+
+                if len(divergencias_iss) > 0 or total_iss_erp > 0 or total_iss_pref > 0:
+                    result["auditoria_iss"] = {
+                        "ativo": True,
+                        "qtd_analisada": max(qtd_retidas_erp, qtd_retidas_pref),
+                        "qtd_retidas_erp": qtd_retidas_erp,
+                        "qtd_retidas_pref": qtd_retidas_pref,
+                        "total_iss_erp": round(total_iss_erp, 2),
+                        "total_iss_prefeitura": round(total_iss_pref, 2),
+                        "qtd_divergencias": len(divergencias_iss),
+                        "valor_divergencias": round(abs(total_iss_erp - total_iss_pref), 2),
+                        "detalhes": divergencias_iss
+                    }
             self.send_json_response({"success": True, "result": result})
 
         except Exception as e:

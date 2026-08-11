@@ -855,6 +855,11 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const divVal = document.getElementById('statIssDiv');
       const divCount = document.getElementById('statIssDivCount');
+      
+      const statIssRetidasCount = document.getElementById('statIssRetidasCount');
+      if (statIssRetidasCount && result.auditoria_iss.qtd_retidas_erp !== undefined) {
+        statIssRetidasCount.textContent = `${result.auditoria_iss.qtd_retidas_erp} notas no ERP | ${result.auditoria_iss.qtd_retidas_pref} na Prefeitura`;
+      }
       divVal.textContent = formatCurrency(result.auditoria_iss.valor_divergencias);
       
       if (result.auditoria_iss.valor_divergencias > 0 && result.auditoria_iss.qtd_divergencias === 0) {
