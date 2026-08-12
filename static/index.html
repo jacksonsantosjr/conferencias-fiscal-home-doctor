@@ -153,9 +153,38 @@
               </div>
             </div>
 
+            <!-- Upload Grid para IRRF -->
+            <div class="upload-grid upload-grid-3" id="uploadGridIrrf" style="display: none;">
+              <!-- Dropzone SF1 -->
+              <div class="dropzone" id="dropzoneSf1">
+                <div class="dropzone-icon">📊</div>
+                <h3>Relatório SF1</h3>
+                <p>Base primária do ERP (Excel)</p>
+                <div class="file-status" id="sf1FileStatus">Nenhum arquivo selecionado</div>
+                <input type="file" id="sf1-file" accept=".xlsx, .xls">
+              </div>
+
+              <!-- Dropzone Aglutinação -->
+              <div class="dropzone" id="dropzoneAglu">
+                <div class="dropzone-icon">📄</div>
+                <h3>Previsão de Aglutinação</h3>
+                <p>Relatório intermediário (PDF)</p>
+                <div class="file-status" id="agluFileStatus">Nenhum arquivo selecionado</div>
+                <input type="file" id="aglu-file" accept=".pdf">
+              </div>
+
+              <!-- Dropzone R-4020 -->
+              <div class="dropzone" id="dropzoneR4020">
+                <div class="dropzone-icon">📝</div>
+                <h3>Relatório R-4020</h3>
+                <p>Base final REINF (Excel)</p>
+                <div class="file-status" id="r4020FileStatus">Nenhum arquivo selecionado</div>
+                <input type="file" id="r4020-file" accept=".xlsx, .xls">
+              </div>
+            </div>
+
             <div class="action-bar">
               <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-
                 <button type="button" class="btn-batch" id="btnBatchModal" title="Abrir Painel de Conferência em Lote de Todas as Prefeituras">
                   📦 Conferência em Lote
                 </button>
@@ -163,6 +192,10 @@
 
               <button type="button" class="btn-primary" id="btnStartAudit">
                 <span>Realizar Conferência Fiscal</span>
+              </button>
+              
+              <button type="button" class="btn-primary" id="reconcile-irrf-btn" style="display: none;">
+                <span>Iniciar Conciliação de IRRF</span>
               </button>
             </div>
           </div>
@@ -304,53 +337,13 @@
           </div>
         </section>
 
+        <!-- Resultados IRRF (Oculto inicialmente) -->
+        <div id="irrf-results" style="display: none;">
+        </div>
+
         </main>
 
-        <!-- Painel Central - IRRF -->
-        <main class="main-content" data-module="irrf" style="display: none;">
-            <header class="topbar">
-                <h1>Conciliação de IRRF</h1>
-                <p>Cruze os relatórios de retenção de IRRF para a geração da guia via DCTFWeb.</p>
-            </header>
 
-            <section class="upload-section">
-                <div class="upload-card">
-                    <div class="upload-icon">📊</div>
-                    <h3>Relatório SF1</h3>
-                    <p>Base primária do ERP (Excel)</p>
-                    <input type="file" id="sf1-file" accept=".xlsx, .xls">
-                    <label for="sf1-file" class="upload-btn">Selecionar Arquivo</label>
-                    <span class="file-name" id="sf1-name">Nenhum arquivo selecionado</span>
-                </div>
-
-                <div class="upload-card">
-                    <div class="upload-icon">📄</div>
-                    <h3>Previsão de Aglutinação</h3>
-                    <p>Relatório intermediário (PDF)</p>
-                    <input type="file" id="aglu-file" accept=".pdf">
-                    <label for="aglu-file" class="upload-btn">Selecionar Arquivo</label>
-                    <span class="file-name" id="aglu-name">Nenhum arquivo selecionado</span>
-                </div>
-
-                <div class="upload-card">
-                    <div class="upload-icon">📝</div>
-                    <h3>Relatório R-4020</h3>
-                    <p>Base final REINF (Excel)</p>
-                    <input type="file" id="r4020-file" accept=".xlsx, .xls">
-                    <label for="r4020-file" class="upload-btn">Selecionar Arquivo</label>
-                    <span class="file-name" id="r4020-name">Nenhum arquivo selecionado</span>
-                </div>
-            </section>
-
-            <div class="action-bar">
-                <button id="reconcile-irrf-btn" class="primary-btn">Iniciar Conciliação</button>
-            </div>
-
-            <!-- Dashboard de Resultados -->
-            <section class="results-dashboard" id="irrf-results" style="display: none;">
-                <!-- O conteúdo será injetado dinamicamente via JS (mesmo padrão do ISS) -->
-            </section>
-        </main>
     </div>
   </div>
 

@@ -71,9 +71,10 @@ ALL_CITIES_CONFIG = [
 
 def parse_multipart_data(data: bytes, boundary: bytes) -> Dict[str, Any]:
     fields = {}
-    parts = data.split(b'--' + boundary)
+    delimiter = b'--' + boundary
+    parts = data.split(delimiter)
     for part in parts:
-        if not part or part == b'--\r\n' or part == b'--':
+        if not part or part.startswith(b'--'):
             continue
         if b'\r\n\r\n' in part:
             header_part, content = part.split(b'\r\n\r\n', 1)
@@ -95,6 +96,7 @@ def parse_multipart_data(data: bytes, boundary: bytes) -> Dict[str, Any]:
                 if filename:
                     fields[f"{name}_filename"] = filename
     return fields
+
 
 
 class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
@@ -761,9 +763,21 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             irrf_parser = IRRFReconciler()
-            irrf_parser.parse_sf1(io.BytesIO(sf1_bytes))
-            irrf_parser.parse_aglutinacao(io.BytesIO(aglu_bytes))
-            irrf_parser.parse_r4020(io.BytesIO(r4020_bytes))
+            
+            try:
+                irrf_parser.parse_sf1(io.BytesIO(sf1_bytes))
+            except Exception as e:
+                print(f"Erro ao processar SF1: {e}")
+
+            try:
+                irrf_parser.parse_aglutinacao(io.BytesIO(aglu_bytes))
+            except Exception as e:
+                print(f"Erro ao processar Aglutinacao: {e}")
+
+            try:
+                irrf_parser.parse_r4020(io.BytesIO(r4020_bytes))
+            except Exception as e:
+                print(f"Erro ao processar R-4020: {e}")
             
             result = irrf_parser.reconcile()
 
@@ -771,6 +785,7 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
 
         except Exception as e:
             self.send_json_response({"success": False, "error": f"Erro no processamento de IRRF: {str(e)}"})
+
 
     def send_json_response(self, data: Dict[str, Any], status_code: int = 200):
         body = json.dumps(data, ensure_ascii=False).encode('utf-8')
