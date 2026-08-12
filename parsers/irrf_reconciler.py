@@ -180,9 +180,10 @@ class IRRFReconciler:
                             parts = line_str.split()
                             if len(parts) >= 5 and ('IRF' in line_str or 'IRRF' in line_str):
                                 digits_parts = [p for p in parts if p.isdigit()]
-                                if len(digits_parts) >= 2:
+                                if len(digits_parts) >= 3:
                                     filial = digits_parts[0].lstrip('0')
-                                    numero = digits_parts[1].lstrip('0')
+                                    # Se houver 4 blocos de dígitos, o índice 1 é o Prefixo e o índice 2 é o Número
+                                    numero = digits_parts[2].lstrip('0') if len(digits_parts) >= 4 else digits_parts[1].lstrip('0')
                                     valor = parse_currency(parts[-1])
                                     if valor > 0:
                                         self.aglu_data.append({
@@ -228,6 +229,18 @@ class IRRFReconciler:
             })
 
     def reconcile(self):
+        # 0. Descobrir dinamicamente os prefixos válidos (raiz da matriz)
+        todas_filiais_auxiliares = set()
+        for item in self.aglu_data + self.r4020_data:
+            f = item.get('filial', '')
+            if f:
+                todas_filiais_auxiliares.add(str(f).lstrip('0'))
+        
+        valid_prefixes = set(f[:4] for f in todas_filiais_auxiliares if len(f) >= 4)
+        if not valid_prefixes:
+            # Fallback se houver códigos com menos de 4 dígitos (improvável)
+            valid_prefixes = set(f for f in todas_filiais_auxiliares if f)
+
         # 1. Agrupar tudo por Filial + Número do Documento
         master = {}
 
@@ -236,7 +249,6 @@ class IRRFReconciler:
             if key not in master:
                 master[key] = {
                     'filial': filial,
-                    'numero': num,
                     'numero': num,
                     'fornecedor': '',
                     'cnpj': '',
@@ -249,6 +261,13 @@ class IRRFReconciler:
             return master[key]
 
         for item in self.sf1_data:
+            f_norm = str(item.get('filial', '')).lstrip('0')
+            
+            if valid_prefixes:
+                match = any(f_norm.startswith(p) for p in valid_prefixes)
+                if not match:
+                    continue
+
             rec = get_or_create(item.get('filial', ''), item['numero'])
             rec['irrf_sf1'] += item['irrf_sf1']
             if item.get('cnpj'): rec['cnpj'] = item['cnpj']

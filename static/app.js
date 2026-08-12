@@ -1500,7 +1500,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (elTotalCount)     elTotalCount.textContent    = `${total} documentos analisados (3 relatórios cruzados)`;
     if (elMatchedVal)     elMatchedVal.textContent    = `${conciliados}`;
     if (elMatchedCount)   elMatchedCount.textContent  = 'Sem divergências (SF1 = Aglu. = R-4020)';
-    if (elDivVal)         elDivVal.textContent        = `${divergentes}`;
+    if (elDivVal)         elDivVal.textContent        = `${divergentes + ausentes}`;
     if (elDivCount)       elDivCount.textContent      = `${ausentes} ausentes + ${divergentes} com divergência`;
     if (elAccuracy)       elAccuracy.textContent      = `${taxa}%`;
     if (elCountAll)       elCountAll.textContent      = total;
