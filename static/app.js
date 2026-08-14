@@ -2004,7 +2004,9 @@ document.addEventListener('DOMContentLoaded', () => {
       tabGroup.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       activeTab = btn.getAttribute('data-tab');
-      if (currentReconciliationData && currentReconciliationData._irrf_mode) {
+      if (currentReconciliationData && currentReconciliationData._csrf_mode) {
+        filterAndRenderCsrfTable();
+      } else if (currentReconciliationData && currentReconciliationData._irrf_mode) {
         filterAndRenderIrrfTable();
       } else {
         filterAndRenderTable();
@@ -2013,14 +2015,189 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   searchInput.addEventListener('input', () => {
-    if (currentReconciliationData && currentReconciliationData._irrf_mode) {
+    if (currentReconciliationData && currentReconciliationData._csrf_mode) {
+      filterAndRenderCsrfTable();
+    } else if (currentReconciliationData && currentReconciliationData._irrf_mode) {
       filterAndRenderIrrfTable();
     } else {
       filterAndRenderTable();
     }
   });
 
+  // ==========================================
+  // EXPORTAÇÃO EXCEL & IMPRESSÃO / PDF (SDD)
+  // ==========================================
+
+  function exportReconciliationToExcel() {
+    if (!currentReconciliationData || !currentReconciliationData.items || currentReconciliationData.items.length === 0) {
+      alert('Nenhum dado processado para exportação. Realize uma conciliação primeiro.');
+      return;
+    }
+
+    if (typeof XLSX === 'undefined') {
+      alert('Biblioteca SheetJS (XLSX) não carregada. Verifique sua conexão com a internet.');
+      return;
+    }
+
+    const data = currentReconciliationData;
+    const resumo = data.resumo || {};
+    const items = data.items || [];
+    
+    let moduloNome = 'Geral';
+    if (data._csrf_mode || currentMode === 'csrf') {
+      moduloNome = 'CSRF_PCC';
+    } else if (data._irrf_mode || currentMode === 'irrf') {
+      moduloNome = 'IRRF';
+    } else if (currentMode === 'iss-prestados') {
+      moduloNome = 'ISS_Prestados';
+    } else if (currentMode === 'iss-tomados') {
+      moduloNome = 'ISS_Tomados';
+    } else if (currentMode === 'faturamento') {
+      moduloNome = 'Faturamento';
+    }
+
+    // 1. Aba Resumo
+    const resumoAoa = [
+      ['RELATÓRIO CONSOLIDADO DE CONCILIAÇÃO FISCAL - HOME DOCTOR'],
+      ['Módulo:', moduloNome.replace('_', ' ')],
+      ['Data de Extração:', new Date().toLocaleString('pt-BR')],
+      [],
+      ['INDICADORES DO DASHBOARD', 'VALORES'],
+      ['Total Auditado (Qtd Documentos)', resumo.total_erp_qtd || items.length],
+      ['Total Auditado (R$)', resumo.total_erp_valor || 0],
+      ['Total Conciliado (Qtd)', resumo.conciliados_qtd || 0],
+      ['Total Conciliado (R$)', resumo.conciliados_valor || 0],
+      ['Total Divergências (Qtd)', resumo.divergentes_qtd || 0],
+      ['Total Divergências (R$)', resumo.divergentes_valor || 0],
+      ['Total Ausentes (Qtd)', resumo.ausentes_qtd || 0],
+      ['Taxa de Assertividade', `${resumo.taxa_assertividade || '0.0'}%`]
+    ];
+
+    // 2. Aba Dados
+    let dadosHeaders = [];
+    let dadosRows = [];
+
+    if (data._csrf_mode || currentMode === 'csrf') {
+      dadosHeaders = [
+        'Status',
+        'Documento',
+        'CNPJ',
+        'Razão Social',
+        'PCC ERP (R$)',
+        'PCC Aglu. (R$)',
+        'R-4020 (R$)',
+        'Diferença (R$)',
+        'Diagnóstico'
+      ];
+      dadosRows = items.map(item => [
+        item.status === 'CONCILIADO' ? 'Conciliado' : (item.status === 'SOMENTE_ERP' ? 'Ausente' : 'Divergente'),
+        item.numero_erp || '',
+        item.cnpj || '',
+        item.tomador || '',
+        item.csrf_se2 !== undefined ? item.csrf_se2 : (item.valor_erp || 0),
+        item.csrf_aglu !== undefined ? item.csrf_aglu : (item.valor_prefeitura || 0),
+        item.csrf_r4020 !== undefined ? item.csrf_r4020 : 0,
+        item.diferenca || 0,
+        item.diagnostico || ''
+      ]);
+    } else if (data._irrf_mode || currentMode === 'irrf') {
+      dadosHeaders = [
+        'Status',
+        'Documento',
+        'CNPJ',
+        'Razão Social',
+        'SF1 ERP (R$)',
+        'Aglutinação (R$)',
+        'R-4020 (R$)',
+        'Diferença (R$)',
+        'Diagnóstico'
+      ];
+      dadosRows = items.map(item => [
+        item.status === 'CONCILIADO' ? 'Conciliado' : (item.status === 'SOMENTE_ERP' ? 'Ausente' : 'Divergente'),
+        item.numero_erp || '',
+        item.cnpj || '',
+        item.tomador || '',
+        item.irrf_sf1 !== undefined ? item.irrf_sf1 : (item.valor_erp || 0),
+        item.irrf_aglu !== undefined ? item.irrf_aglu : (item.valor_prefeitura || 0),
+        item.irrf_r4020 !== undefined ? item.irrf_r4020 : 0,
+        item.diferenca || 0,
+        item.diagnostico || ''
+      ]);
+    } else {
+      dadosHeaders = [
+        'Status',
+        'Ref. ERP (RPS/Nota)',
+        'Nota Prefeitura',
+        'Tomador',
+        'Valor ERP (R$)',
+        'Base Calc. Prefeitura (R$)',
+        'Diferença (R$)',
+        'Diagnóstico'
+      ];
+      dadosRows = items.map(item => [
+        item.status === 'CONCILIADO' ? 'Conciliado' : (item.status === 'SOMENTE_ERP' ? 'Ausente' : 'Divergente'),
+        item.numero_erp || item.rps_erp || '',
+        item.numero_prefeitura || '',
+        item.tomador || '',
+        item.valor_erp || 0,
+        item.valor_prefeitura || 0,
+        item.diferenca || 0,
+        item.diagnostico || ''
+      ]);
+    }
+
+    const dadosAoa = [dadosHeaders, ...dadosRows];
+
+    // Criar o workbook
+    const wb = XLSX.utils.book_new();
+    const wsResumo = XLSX.utils.aoa_to_sheet(resumoAoa);
+    const wsDados = XLSX.utils.aoa_to_sheet(dadosAoa);
+
+    // Ajustar larguras das colunas
+    wsResumo['!cols'] = [{ wch: 35 }, { wch: 25 }];
+    wsDados['!cols'] = [
+      { wch: 14 },
+      { wch: 18 },
+      { wch: 22 },
+      { wch: 35 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 40 }
+    ];
+
+    XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo');
+    XLSX.utils.book_append_sheet(wb, wsDados, 'Dados');
+
+    const dataHoje = new Date().toISOString().slice(0, 10);
+    const fileName = `Conciliacao_${moduloNome}_${dataHoje}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  }
+
+  function printReconciliationReport() {
+    if (!currentReconciliationData || !currentReconciliationData.items || currentReconciliationData.items.length === 0) {
+      alert('Nenhum dado processado para impressão. Realize uma conciliação primeiro.');
+      return;
+    }
+    if (accuracyChartInstance) {
+      accuracyChartInstance.resize();
+    }
+    setTimeout(() => {
+      window.print();
+    }, 100);
+  }
+
+  if (btnExportExcel) {
+    btnExportExcel.addEventListener('click', exportReconciliationToExcel);
+  }
+
+  if (btnExportPdf) {
+    btnExportPdf.addEventListener('click', printReconciliationReport);
+  }
+
   function formatCurrency(val) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
   }
 });
+

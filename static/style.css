@@ -970,3 +970,181 @@ body {
   border-style: dotted;
   border-color: var(--border-color);
 }
+
+/* ==========================================================================
+   ESTILIZAÇÃO PARA IMPRESSÃO / GERAÇÃO DE PDF (@media print)
+   ========================================================================== */
+@media print {
+  @page {
+    size: landscape;
+    margin: 10mm;
+  }
+
+  body, html {
+    background: #ffffff !important;
+    color: #1a1a1a !important;
+    font-size: 11pt !important;
+  }
+
+  /* Ocultar elementos de navegação, formulário e interatividade */
+  .sidebar,
+  .sidebar-toggle-btn,
+  .btn-theme-toggle,
+  #uploadFormContainer,
+  .upload-grid,
+  .action-bar,
+  .chart-actions,
+  .table-controls,
+  .export-group,
+  .modal-overlay,
+  .btn-export,
+  .btn-reset,
+  .btn-batch,
+  .btn-primary {
+    display: none !important;
+  }
+
+  /* Expandir a área principal para tela cheia */
+  .app-layout {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .main-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Painel do Gráfico (mantendo moldura elegante de card) */
+  .upload-section {
+    background: #ffffff !important;
+    border: 1px solid #e0e0e0 !important;
+    border-radius: 12px !important;
+    padding: 15px !important;
+    margin-bottom: 20px !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Exibir Gráfico Centralizado com Proporção Perfeita */
+  #chartContainer {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    page-break-inside: avoid !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  .chart-wrapper {
+    display: block !important;
+    width: 100% !important;
+    max-width: 600px !important;
+    height: 300px !important;
+    margin: 0 auto !important;
+    position: relative !important;
+  }
+
+  canvas,
+  #accuracyChart {
+    max-height: 300px !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+    margin: 0 auto !important;
+  }
+
+  .custom-legend {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 20px !important;
+    margin-top: 15px !important;
+    font-size: 9pt !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Respeitar rigorosamente elementos ocultos via inline style ou classes */
+  [style*="display: none"],
+  [style*="display:none"] {
+    display: none !important;
+  }
+
+  /* Grid de Cards Estatísticos (Apenas o dashboard ativo no momento) */
+  .dashboard-grid:not([style*="display: none"]):not([style*="display:none"]) {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 12px !important;
+    margin-bottom: 20px !important;
+    page-break-inside: avoid !important;
+  }
+
+  .glass-panel,
+  .stat-card,
+  .results-section {
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: 1px solid #e0e0e0 !important;
+    color: #000000 !important;
+  }
+
+  .stat-card {
+    border-radius: 8px !important;
+    padding: 12px !important;
+  }
+
+  .stat-title {
+    font-size: 9pt !important;
+    color: #666 !important;
+  }
+
+  .stat-value {
+    font-size: 16pt !important;
+    font-weight: bold !important;
+  }
+
+  .stat-sub {
+    font-size: 8pt !important;
+    color: #777 !important;
+  }
+
+  /* Tabela de Resultados */
+  .table-wrapper {
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+  }
+
+  .data-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto !important;
+    font-size: 9pt !important;
+  }
+
+  .data-table th, 
+  .data-table td {
+    border: 1px solid #ccc !important;
+    padding: 6px 8px !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+  }
+
+  .data-table th {
+    background-color: #f5f5f5 !important;
+    font-weight: bold !important;
+  }
+
+  .data-table tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
+  }
+}
+
+
