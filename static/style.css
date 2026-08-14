@@ -956,6 +956,10 @@ body {
   grid-template-columns: repeat(3, 1fr);
 }
 
+.upload-grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
 .badge-optional {
   font-size: 10px;
   background-color: var(--secondary);
@@ -969,6 +973,138 @@ body {
 .dropzone-optional {
   border-style: dotted;
   border-color: var(--border-color);
+}
+
+#statToleranceInfo {
+  display: none !important;
+}
+
+/* ==========================================================================
+   CARDS DE APURAÇÃO DE PIS E COFINS (2 COLUNAS LADO A LADO)
+   ========================================================================== */
+.piscofins-grid-container {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin-top: 16px;
+  width: 100%;
+}
+
+@media (max-width: 992px) {
+  .piscofins-grid-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.calc-card {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.calc-card:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.07);
+}
+
+.calc-card.pis-card,
+.calc-card.cofins-card {
+  border-top: 4px solid #059669;
+}
+
+.calc-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  padding-bottom: 14px;
+}
+
+.calc-card-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.calc-card-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-color, #1e293b);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calc-card-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-muted, #64748b);
+}
+
+.calc-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.calc-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+.calc-row:nth-child(odd) {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+body.dark-theme .calc-row:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.calc-row-label {
+  color: var(--text-color, #334155);
+  font-weight: 500;
+}
+
+.calc-row-val {
+  font-weight: 600;
+  font-family: inherit;
+}
+
+.calc-divider {
+  border: none;
+  border-top: 1px dashed var(--border-color, #cbd5e1);
+  margin: 6px 0;
+}
+
+.calc-row-total {
+  background: rgba(5, 150, 105, 0.08) !important;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-top: 4px;
+}
+
+.calc-row-total .calc-row-label {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-color, #0f172a);
+}
+
+.calc-row-total .calc-row-val {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.pis-val-highlight,
+.cofins-val-highlight {
+  color: #059669;
 }
 
 /* ==========================================================================
@@ -1144,6 +1280,32 @@ body {
   .data-table tr {
     page-break-inside: avoid !important;
     page-break-after: auto !important;
+  }
+
+  /* Cards de PIS/COFINS na Impressão/PDF */
+  .piscofins-grid-container {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 16px !important;
+    page-break-inside: avoid !important;
+  }
+
+  .calc-card {
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    padding: 16px !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .calc-row:nth-child(odd) {
+    background: #f9f9f9 !important;
+  }
+
+  .calc-row-total {
+    border: 1px solid #059669 !important;
+    background: #ecfdf5 !important;
   }
 }
 

@@ -34,29 +34,36 @@ class CSRFReconciler:
 
     def parse_se2(self, file_bytes):
         try:
-            # A planilha tem headers na linha 2 (index 1)
-            df_se2 = pd.read_excel(file_bytes, sheet_name='SE2', header=1)
-            df_se2.columns = [str(c).strip() for c in df_se2.columns]
+            xl = pd.ExcelFile(file_bytes)
             
             coop_cnpjs = set()
-            try:
-                df_coop = pd.read_excel(file_bytes, sheet_name='Cooperativas')
-                df_coop.columns = [str(c).strip() for c in df_coop.columns]
-                coop_cnpjs = set(df_coop['CNPJ'].dropna().astype(str).str.strip().str.replace(r'\D', '', regex=True))
-            except Exception as e:
-                print("Aviso: Não conseguiu ler a aba Cooperativas.", e)
+            coop_cods = set()
+            if 'Cooperativas' in xl.sheet_names:
+                try:
+                    df_coop = pd.read_excel(xl, sheet_name='Cooperativas')
+                    df_coop.columns = [str(c).strip() for c in df_coop.columns]
+                    if 'CNPJ' in df_coop.columns:
+                        coop_cnpjs = set(df_coop['CNPJ'].dropna().astype(str).str.strip().str.replace(r'\D', '', regex=True))
+                    if 'Fornecedor' in df_coop.columns:
+                        coop_cods = set(df_coop['Fornecedor'].dropna().astype(str).str.strip().str.lstrip('0'))
+                except Exception as e:
+                    print("Aviso: Não conseguiu ler a aba Cooperativas.", e)
 
             forn_dict = {}
-            try:
-                df_forn = pd.read_excel(file_bytes, sheet_name='FORNECEDOR', header=None)
-                for _, row in df_forn.iterrows():
-                    codigo = str(row.iloc[0]).strip()
-                    razao_forn = str(row.iloc[1]).strip() if len(row) > 1 else ''
-                    cnpj_forn = str(row.iloc[4]).strip() if len(row) > 4 else ''
-                    if codigo:
-                        forn_dict[codigo] = (cnpj_forn, razao_forn)
-            except Exception as e:
-                print("Aviso: Não conseguiu ler a aba FORNECEDOR.", e)
+            if 'FORNECEDOR' in xl.sheet_names:
+                try:
+                    df_forn = pd.read_excel(xl, sheet_name='FORNECEDOR', header=None)
+                    for _, row in df_forn.iterrows():
+                        codigo = str(row.iloc[0]).strip().lstrip('0')
+                        razao_forn = str(row.iloc[1]).strip() if len(row) > 1 else ''
+                        cnpj_forn = str(row.iloc[4]).strip() if len(row) > 4 else ''
+                        if codigo:
+                            forn_dict[codigo] = (cnpj_forn, razao_forn)
+                except Exception as e:
+                    print("Aviso: Não conseguiu ler a aba FORNECEDOR.", e)
+
+            df_se2 = pd.read_excel(xl, sheet_name='SE2', header=1)
+            df_se2.columns = [str(c).strip() for c in df_se2.columns]
 
             for _, row in df_se2.iterrows():
                 filial = clean_doc_num(row.get('Filial'))
@@ -65,9 +72,13 @@ class CSRFReconciler:
                 numero = clean_doc_num(row.get('No. Titulo'))
                 
                 # Simular PROCV buscando na aba FORNECEDOR pela coluna L (índice 11) ou 'Fornece'
-                fornece = str(row.get('Fornece', row.iloc[11] if len(row) > 11 else '')).strip()
+                fornece = str(row.get('Fornece', row.iloc[11] if len(row) > 11 else '')).strip().lstrip('0')
+                forn_cod = str(row.get('Fornecedor', '')).strip().lstrip('0')
+                
                 if fornece and fornece in forn_dict:
                     cnpj, razao = forn_dict[fornece]
+                elif forn_cod and forn_cod in forn_dict:
+                    cnpj, razao = forn_dict[forn_cod]
                 else:
                     cnpj = str(row.get('CNPJ Fornec', '')).strip()
                     razao = str(row.get('Nome Fornece', '')).strip()
@@ -81,18 +92,18 @@ class CSRFReconciler:
                 if pis <= 0 and cofins <= 0 and csll <= 0:
                     continue
                 
-                is_coop = 'SIM' if (cnpj_clean in coop_cnpjs and cnpj_clean) else 'NÃO'
+                is_coop = (cnpj_clean in coop_cnpjs and cnpj_clean) or (forn_cod in coop_cods and forn_cod) or ('COOP' in razao.upper())
                 
                 self.se2_data.append({
                     'filial': filial,
                     'numero': numero,
                     'cnpj': cnpj,
                     'razao': razao,
-                    'is_coop': is_coop,
+                    'is_coop': 'SIM' if is_coop else 'NÃO',
                     'pis': pis,
                     'cofins': cofins,
                     'csll': csll,
-                    'pcc': pis + cofins + csll if is_coop == 'NÃO' else Decimal('0.00')
+                    'pcc': pis + cofins + csll if not is_coop else Decimal('0.00')
                 })
         except Exception as e:
             print("Notice: Could not parse SE2:", e)
@@ -116,8 +127,14 @@ class CSRFReconciler:
                     col_str = str(col).lower().strip()
                     if 'filial' in col_str: col_filial = col
                     elif 'numero' in col_str or 'título' in col_str or 'titulo' in col_str or 'documento' in col_str: col_numero = col
-                    elif 'natureza' in col_str or 'tipo' in col_str: col_natureza = col
+                    elif 'natureza' in col_str: col_natureza = col
                     elif 'valor' in col_str: col_valor = col
+                
+                if not col_natureza:
+                    for col in df.columns:
+                        if 'tipo' in str(col).lower().strip():
+                            col_natureza = col
+                            break
                 
                 if not col_filial or not col_numero or not col_valor:
                     print("Aviso: Colunas vitais ausentes no arquivo de Aglutinação.")
@@ -388,20 +405,18 @@ class CSRFReconciler:
                     continue
             
             if rec['is_coop'] == 'SIM':
-                se2_pis = rec['se2_pis']
-                se2_cof = rec['se2_cofins']
-                aglu_pis = rec['aglu_pis']
-                aglu_cof = rec['aglu_cofins']
+                se2_total_coop = rec['se2_pis'] + rec['se2_cofins']
+                aglu_total_coop = rec['aglu_pis'] + rec['aglu_cofins']
                 
-                if se2_pis == aglu_pis and se2_cof == aglu_cof and (se2_pis > 0 or se2_cof > 0):
+                if se2_total_coop == aglu_total_coop and se2_total_coop > 0:
                     rec['status'] = 'Conciliado'
                     rec['diagnostico'] = 'Coop. Conciliada (SE2 = Aglu)'
                     conciliados += 1
-                elif (se2_pis > 0 or se2_cof > 0) and (aglu_pis == 0 and aglu_cof == 0):
+                elif se2_total_coop > 0 and aglu_total_coop == 0:
                     rec['status'] = 'Ausente'
                     rec['diagnostico'] = 'Coop. Ausente na Aglutinação'
                     ausentes += 1
-                elif (se2_pis == 0 and se2_cof == 0) and (aglu_pis > 0 or aglu_cof > 0):
+                elif se2_total_coop == 0 and aglu_total_coop > 0:
                     rec['status'] = 'Ausente'
                     rec['diagnostico'] = 'Coop. Ausente no ERP (SE2)'
                     ausentes += 1
@@ -410,8 +425,8 @@ class CSRFReconciler:
                     rec['diagnostico'] = 'Divergência de Valores (Coop.)'
                     divergentes += 1
 
-                rec['valor_erp'] = se2_pis + se2_cof
-                rec['valor_aglu'] = aglu_pis + aglu_cof
+                rec['valor_erp'] = se2_total_coop
+                rec['valor_aglu'] = aglu_total_coop
                 rec['valor_reinf'] = Decimal('0.00')
                 # Overwrite 'razao' to mark it clearly in UI if desired
                 rec['razao'] = f"[COOP] {rec['razao']}" if not rec['razao'].startswith('[COOP]') else rec['razao']

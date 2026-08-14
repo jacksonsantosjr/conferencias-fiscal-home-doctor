@@ -77,19 +77,22 @@ document.addEventListener('DOMContentLoaded', () => {
     iss: { reconciliationData: null, batchData: null },
     'iss-tomados': { reconciliationData: null, batchData: null },
     irrf: { reconciliationData: null, batchData: null },
-    csrf: { reconciliationData: null, batchData: null }
+    csrf: { reconciliationData: null, batchData: null },
+    'pis-cofins': { reconciliationData: null, batchData: null }
   };
 
   const fileState = {
     prestados: { erpFile: null, cityFile: null, zipFile: null, erpText: 'Nenhum arquivo selecionado', cityText: 'Nenhum arquivo selecionado', zipText: 'Nenhum arquivo compactado selecionado', erpActive: false, cityActive: false, zipActive: false },
     tomados: { erpFile: null, cityFile: null, zipFile: null, erpText: 'Nenhum arquivo selecionado', cityText: 'Nenhum arquivo selecionado', zipText: 'Nenhum arquivo compactado selecionado', erpActive: false, cityActive: false, zipActive: false },
     irrf: { sf1File: null, agluFile: null, r4020File: null, sf1Text: 'Nenhum arquivo selecionado', agluText: 'Nenhum arquivo selecionado', r4020Text: 'Nenhum arquivo selecionado' },
-    csrf: { se2File: null, agluFile: null, r4020File: null, se2Text: 'Nenhum arquivo selecionado', agluText: 'Nenhum arquivo selecionado', r4020Text: 'Nenhum arquivo selecionado' }
+    csrf: { se2File: null, agluFile: null, r4020File: null, se2Text: 'Nenhum arquivo selecionado', agluText: 'Nenhum arquivo selecionado', r4020Text: 'Nenhum arquivo selecionado' },
+    'pis-cofins': { sftFile: null, glosasFile: null, retencaoFile: null, balancetesFiles: [], sftText: 'Nenhum arquivo selecionado', glosasText: 'Nenhum arquivo selecionado', retencaoText: 'Nenhum arquivo selecionado', balancetesText: 'Nenhum arquivo selecionado' }
   };
 
   function getFileGroup(mode) {
     if (mode === 'irrf') return 'irrf';
     if (mode === 'csrf') return 'csrf';
+    if (mode === 'pis-cofins') return 'pis-cofins';
     return mode === 'iss-tomados' ? 'tomados' : 'prestados';
   }
 
@@ -116,6 +119,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const se2CsrfFileName = document.getElementById('se2FileStatus');
   const agluCsrfFileName = document.getElementById('agluCsrfFileStatus');
   const r4020CsrfFileName = document.getElementById('r4020CsrfFileStatus');
+
+  // PIS / COFINS Elements
+  const sftFileInput = document.getElementById('sft-file');
+  const glosasFileInput = document.getElementById('glosas-file');
+  const retencaoFileInput = document.getElementById('retencao-file');
+  const balancetesPisFileInput = document.getElementById('balancetes-pis-file');
+  const sftFileName = document.getElementById('sftFileStatus');
+  const glosasFileName = document.getElementById('glosasFileStatus');
+  const retencaoFileName = document.getElementById('retencaoFileStatus');
+  const balancetesPisFileName = document.getElementById('balancetesPisFileStatus');
+  const btnStartPisCofinsAudit = document.getElementById('reconcile-piscofins-btn');
+
+  let selectedSftFile = null;
+  let selectedGlosasFile = null;
+  let selectedRetencaoFile = null;
+  let selectedBalancetesPisFiles = [];
 
   // ========================================================
   // GERENCIAMENTO DA SIDEBAR RETRÁTIL (CND STYLE)
@@ -159,6 +178,15 @@ document.addEventListener('DOMContentLoaded', () => {
         fileState[fgOld].se2Text = se2CsrfFileName ? se2CsrfFileName.textContent : 'Nenhum arquivo selecionado';
         fileState[fgOld].agluCsrfText = agluCsrfFileName ? agluCsrfFileName.textContent : 'Nenhum arquivo selecionado';
         fileState[fgOld].r4020CsrfText = r4020CsrfFileName ? r4020CsrfFileName.textContent : 'Nenhum arquivo selecionado';
+      } else if (currentMode === 'pis-cofins') {
+        fileState[fgOld].sftFile = selectedSftFile;
+        fileState[fgOld].glosasFile = selectedGlosasFile;
+        fileState[fgOld].retencaoFile = selectedRetencaoFile;
+        fileState[fgOld].balancetesFiles = selectedBalancetesPisFiles;
+        fileState[fgOld].sftText = sftFileName ? sftFileName.textContent : 'Nenhum arquivo selecionado';
+        fileState[fgOld].glosasText = glosasFileName ? glosasFileName.textContent : 'Nenhum arquivo selecionado';
+        fileState[fgOld].retencaoText = retencaoFileName ? retencaoFileName.textContent : 'Nenhum arquivo selecionado';
+        fileState[fgOld].balancetesText = balancetesPisFileName ? balancetesPisFileName.textContent : 'Nenhum arquivo selecionado';
       } else {
         fileState[fgOld].erpFile = selectedErpFile;
         fileState[fgOld].cityFile = selectedCityFile;
@@ -196,6 +224,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (uploadGridIrrf) uploadGridIrrf.style.display = 'grid';
         const uploadGridCsrf = document.getElementById('uploadGridCsrf');
         if (uploadGridCsrf) uploadGridCsrf.style.display = 'none';
+        const uploadGridPis = document.getElementById('uploadGridPisCofins');
+        if (uploadGridPis) uploadGridPis.style.display = 'none';
         
         if (cityBadgeSelect) cityBadgeSelect.style.display = 'none';
         
@@ -203,13 +233,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnStartAudit) btnStartAudit.style.display = 'none';
         if (btnStartIrrf) btnStartIrrf.style.display = 'inline-flex';
         if (btnStartCsrf) btnStartCsrf.style.display = 'none';
+        if (btnStartPisCofinsAudit) btnStartPisCofinsAudit.style.display = 'none';
+
+        const standardTableWrapper = document.getElementById('standardTableWrapper');
+        const piscofinsResultsCards = document.getElementById('piscofinsResultsCards');
+        const tabGroup = document.getElementById('tabGroup');
+        const searchInput = document.getElementById('searchInput');
+        if (standardTableWrapper) standardTableWrapper.style.display = 'block';
+        if (piscofinsResultsCards) piscofinsResultsCards.style.display = 'none';
+        if (tabGroup) tabGroup.style.display = 'flex';
+        if (searchInput) searchInput.style.display = 'block';
         
-        if (resultsSection) resultsSection.style.display = 'none';
-        if (csrfResultsSection) csrfResultsSection.style.display = 'none';
-        if (irrfResultsSection && moduleState['irrf'].reconciliationData) {
-            irrfResultsSection.style.display = 'block';
-        } else if (irrfResultsSection) {
-            irrfResultsSection.style.display = 'none';
+        if (resultsSection && moduleState['irrf'] && moduleState['irrf'].reconciliationData) {
+            resultsSection.style.display = 'block';
+        } else if (resultsSection) {
+            resultsSection.style.display = 'none';
         }
       } else if (mod === 'csrf') {
         currentMode = 'csrf';
@@ -221,6 +259,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (uploadGridIrrf) uploadGridIrrf.style.display = 'none';
         const uploadGridCsrf = document.getElementById('uploadGridCsrf');
         if (uploadGridCsrf) uploadGridCsrf.style.display = 'grid';
+        const uploadGridPis = document.getElementById('uploadGridPisCofins');
+        if (uploadGridPis) uploadGridPis.style.display = 'none';
         
         // HIDE CITY SELECTOR
         if (cityBadgeSelect) cityBadgeSelect.style.display = 'none';
@@ -229,19 +269,65 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnStartAudit) btnStartAudit.style.display = 'none';
         if (btnStartIrrf) btnStartIrrf.style.display = 'none';
         if (btnStartCsrf) btnStartCsrf.style.display = 'inline-flex';
+        if (btnStartPisCofinsAudit) btnStartPisCofinsAudit.style.display = 'none';
+
+        const standardTableWrapper = document.getElementById('standardTableWrapper');
+        const piscofinsResultsCards = document.getElementById('piscofinsResultsCards');
+        const tabGroup = document.getElementById('tabGroup');
+        const searchInput = document.getElementById('searchInput');
+        if (standardTableWrapper) standardTableWrapper.style.display = 'block';
+        if (piscofinsResultsCards) piscofinsResultsCards.style.display = 'none';
+        if (tabGroup) tabGroup.style.display = 'flex';
+        if (searchInput) searchInput.style.display = 'block';
         
-        if (resultsSection) resultsSection.style.display = 'none';
-        if (irrfResultsSection) irrfResultsSection.style.display = 'none';
-        if (csrfResultsSection && moduleState['csrf'].reconciliationData) {
-            csrfResultsSection.style.display = 'block';
-        } else if (csrfResultsSection) {
-            csrfResultsSection.style.display = 'none';
+        if (resultsSection && moduleState['csrf'] && moduleState['csrf'].reconciliationData) {
+            resultsSection.style.display = 'block';
+        } else if (resultsSection) {
+            resultsSection.style.display = 'none';
+        }
+      } else if (mod === 'pis-cofins') {
+        currentMode = 'pis-cofins';
+        document.getElementById('moduleTitle').textContent = 'Apuração de PIS / COFINS (Regime Cumulativo)';
+        document.getElementById('moduleSub').textContent = 'Apuração de PIS (0,65%) e COFINS (3,00%) por Matriz e confronto com Balancete Contábil.';
+        document.querySelector('.upload-section h2').textContent = '📈 Importação dos Arquivos (PIS / COFINS)';
+        
+        if (uploadGridContainer) uploadGridContainer.style.display = 'none';
+        if (uploadGridIrrf) uploadGridIrrf.style.display = 'none';
+        const uploadGridCsrf = document.getElementById('uploadGridCsrf');
+        if (uploadGridCsrf) uploadGridCsrf.style.display = 'none';
+        const uploadGridPis = document.getElementById('uploadGridPisCofins');
+        if (uploadGridPis) uploadGridPis.style.display = 'grid';
+        
+        // HIDE CITY SELECTOR
+        if (cityBadgeSelect) cityBadgeSelect.style.display = 'none';
+        
+        if (btnBatchModal) btnBatchModal.parentElement.style.display = 'none';
+        if (btnStartAudit) btnStartAudit.style.display = 'none';
+        if (btnStartIrrf) btnStartIrrf.style.display = 'none';
+        if (btnStartCsrf) btnStartCsrf.style.display = 'none';
+        if (btnStartPisCofinsAudit) btnStartPisCofinsAudit.style.display = 'inline-flex';
+        
+        const standardTableWrapper = document.getElementById('standardTableWrapper');
+        const piscofinsResultsCards = document.getElementById('piscofinsResultsCards');
+        const tabGroup = document.getElementById('tabGroup');
+        const searchInput = document.getElementById('searchInput');
+        if (standardTableWrapper) standardTableWrapper.style.display = 'none';
+        if (piscofinsResultsCards) piscofinsResultsCards.style.display = 'grid';
+        if (tabGroup) tabGroup.style.display = 'none';
+        if (searchInput) searchInput.style.display = 'none';
+
+        if (resultsSection && moduleState['pis-cofins'] && moduleState['pis-cofins'].reconciliationData) {
+            resultsSection.style.display = 'block';
+        } else if (resultsSection) {
+            resultsSection.style.display = 'none';
         }
       } else {
         if (uploadGridContainer) uploadGridContainer.style.display = 'grid';
         if (uploadGridIrrf) uploadGridIrrf.style.display = 'none';
         const uploadGridCsrf = document.getElementById('uploadGridCsrf');
         if (uploadGridCsrf) uploadGridCsrf.style.display = 'none';
+        const uploadGridPis = document.getElementById('uploadGridPisCofins');
+        if (uploadGridPis) uploadGridPis.style.display = 'none';
         
         if (cityBadgeSelect) cityBadgeSelect.style.display = 'flex';
         
@@ -249,6 +335,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnStartAudit) btnStartAudit.style.display = 'inline-flex';
         if (btnStartIrrf) btnStartIrrf.style.display = 'none';
         if (btnStartCsrf) btnStartCsrf.style.display = 'none';
+        if (btnStartPisCofinsAudit) btnStartPisCofinsAudit.style.display = 'none';
         
         if (irrfResultsSection) irrfResultsSection.style.display = 'none';
         if (csrfResultsSection) csrfResultsSection.style.display = 'none';
@@ -279,6 +366,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const tabCityOnlyRestore = document.querySelector('.tab-btn[data-tab="city_only"]');
         if (tabErpOnlyRestore) tabErpOnlyRestore.innerHTML = `⚠️ Apenas ERP (<span id="countErpOnly">0</span>)`;
         if (tabCityOnlyRestore) tabCityOnlyRestore.style.display = '';
+
+        const standardTableWrapper = document.getElementById('standardTableWrapper');
+        const piscofinsResultsCards = document.getElementById('piscofinsResultsCards');
+        const tabGroup = document.getElementById('tabGroup');
+        const searchInput = document.getElementById('searchInput');
+        if (standardTableWrapper) standardTableWrapper.style.display = 'block';
+        if (piscofinsResultsCards) piscofinsResultsCards.style.display = 'none';
+        if (tabGroup) tabGroup.style.display = 'flex';
+        if (searchInput) searchInput.style.display = 'block';
 
 
         if (mod === 'iss-prestados') {
@@ -364,6 +460,29 @@ document.addEventListener('DOMContentLoaded', () => {
           tableBody.innerHTML = '';
           const csrfResultsSection = document.getElementById('csrf-results');
           if (csrfResultsSection) csrfResultsSection.style.display = 'none';
+        }
+      } else if (currentMode === 'pis-cofins') {
+        selectedSftFile = fileState[fgNew].sftFile;
+        selectedGlosasFile = fileState[fgNew].glosasFile;
+        selectedRetencaoFile = fileState[fgNew].retencaoFile;
+        selectedBalancetesPisFiles = fileState[fgNew].balancetesFiles || [];
+        if(sftFileName) sftFileName.textContent = fileState[fgNew].sftText || 'Nenhum arquivo selecionado';
+        if(glosasFileName) glosasFileName.textContent = fileState[fgNew].glosasText || 'Nenhum arquivo selecionado';
+        if(retencaoFileName) retencaoFileName.textContent = fileState[fgNew].retencaoText || 'Nenhum arquivo selecionado';
+        if(balancetesPisFileName) balancetesPisFileName.textContent = fileState[fgNew].balancetesText || 'Nenhum arquivo selecionado';
+
+        if (currentReconciliationData) {
+          renderPisCofinsResults(currentReconciliationData);
+        } else {
+          dashboardGrid.style.display = 'none';
+          const dashboardIssAudit = document.getElementById('dashboardIssAudit');
+          if (dashboardIssAudit) dashboardIssAudit.style.display = 'none';
+          const dashboardBalanceteAudit = document.getElementById('dashboardBalanceteAudit');
+          if (dashboardBalanceteAudit) dashboardBalanceteAudit.style.display = 'none';
+          resultsSection.style.display = 'none';
+          document.getElementById('uploadFormContainer').style.display = 'block';
+          document.getElementById('chartContainer').style.display = 'none';
+          tableBody.innerHTML = '';
         }
       } else {
         selectedErpFile = fileState[fgNew].erpFile;
@@ -607,6 +726,104 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedR4020CsrfFile = e.target.files[0];
         r4020CsrfFileName.textContent = `📝 ${selectedR4020CsrfFile.name}`;
         r4020CsrfFileName.classList.add('active');
+      }
+    });
+  }
+
+  // Dropzones PIS / COFINS
+  const dropzoneSft = document.getElementById('dropzoneSft');
+  const dropzoneGlosas = document.getElementById('dropzoneGlosas');
+  const dropzoneRetencao = document.getElementById('dropzoneRetencao');
+  const dropzoneBalancetesPis = document.getElementById('dropzoneBalancetesPis');
+
+  if (dropzoneSft) {
+    dropzoneSft.addEventListener('dragover', (e) => { e.preventDefault(); dropzoneSft.classList.add('dragover'); });
+    dropzoneSft.addEventListener('dragleave', () => dropzoneSft.classList.remove('dragover'));
+    dropzoneSft.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzoneSft.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        sftFileInput.files = e.dataTransfer.files;
+        selectedSftFile = e.dataTransfer.files[0];
+        sftFileName.textContent = `📊 ${selectedSftFile.name}`;
+        sftFileName.classList.add('active');
+      }
+    });
+    dropzoneSft.addEventListener('click', () => sftFileInput.click());
+    sftFileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        selectedSftFile = e.target.files[0];
+        sftFileName.textContent = `📊 ${selectedSftFile.name}`;
+        sftFileName.classList.add('active');
+      }
+    });
+  }
+
+  if (dropzoneGlosas) {
+    dropzoneGlosas.addEventListener('dragover', (e) => { e.preventDefault(); dropzoneGlosas.classList.add('dragover'); });
+    dropzoneGlosas.addEventListener('dragleave', () => dropzoneGlosas.classList.remove('dragover'));
+    dropzoneGlosas.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzoneGlosas.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        glosasFileInput.files = e.dataTransfer.files;
+        selectedGlosasFile = e.dataTransfer.files[0];
+        glosasFileName.textContent = `📉 ${selectedGlosasFile.name}`;
+        glosasFileName.classList.add('active');
+      }
+    });
+    dropzoneGlosas.addEventListener('click', () => glosasFileInput.click());
+    glosasFileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        selectedGlosasFile = e.target.files[0];
+        glosasFileName.textContent = `📉 ${selectedGlosasFile.name}`;
+        glosasFileName.classList.add('active');
+      }
+    });
+  }
+
+  if (dropzoneRetencao) {
+    dropzoneRetencao.addEventListener('dragover', (e) => { e.preventDefault(); dropzoneRetencao.classList.add('dragover'); });
+    dropzoneRetencao.addEventListener('dragleave', () => dropzoneRetencao.classList.remove('dragover'));
+    dropzoneRetencao.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzoneRetencao.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        retencaoFileInput.files = e.dataTransfer.files;
+        selectedRetencaoFile = e.dataTransfer.files[0];
+        retencaoFileName.textContent = `📑 ${selectedRetencaoFile.name}`;
+        retencaoFileName.classList.add('active');
+      }
+    });
+    dropzoneRetencao.addEventListener('click', () => retencaoFileInput.click());
+    retencaoFileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        selectedRetencaoFile = e.target.files[0];
+        retencaoFileName.textContent = `📑 ${selectedRetencaoFile.name}`;
+        retencaoFileName.classList.add('active');
+      }
+    });
+  }
+
+  if (dropzoneBalancetesPis) {
+    dropzoneBalancetesPis.addEventListener('dragover', (e) => { e.preventDefault(); dropzoneBalancetesPis.classList.add('dragover'); });
+    dropzoneBalancetesPis.addEventListener('dragleave', () => dropzoneBalancetesPis.classList.remove('dragover'));
+    dropzoneBalancetesPis.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzoneBalancetesPis.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        balancetesPisFileInput.files = e.dataTransfer.files;
+        selectedBalancetesPisFiles = Array.from(e.dataTransfer.files);
+        balancetesPisFileName.textContent = `🏛️ ${selectedBalancetesPisFiles.length} balancete(s) selecionado(s)`;
+        balancetesPisFileName.classList.add('active');
+      }
+    });
+    dropzoneBalancetesPis.addEventListener('click', () => balancetesPisFileInput.click());
+    balancetesPisFileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        selectedBalancetesPisFiles = Array.from(e.target.files);
+        balancetesPisFileName.textContent = `🏛️ ${selectedBalancetesPisFiles.length} balancete(s) selecionado(s)`;
+        balancetesPisFileName.classList.add('active');
       }
     });
   }
@@ -940,6 +1157,10 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedSe2CsrfFile = null;
     selectedAgluCsrfFile = null;
     selectedR4020CsrfFile = null;
+    selectedSftFile = null;
+    selectedGlosasFile = null;
+    selectedRetencaoFile = null;
+    selectedBalancetesPisFiles = [];
     currentReconciliationData = null;
     erpFileInput.value = '';
     cityFileInput.value = '';
@@ -954,6 +1175,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (se2CsrfFileInput) se2CsrfFileInput.value = '';
     if (agluCsrfFileInput) agluCsrfFileInput.value = '';
     if (r4020CsrfFileInput) r4020CsrfFileInput.value = '';
+    if (sftFileInput) sftFileInput.value = '';
+    if (glosasFileInput) glosasFileInput.value = '';
+    if (retencaoFileInput) retencaoFileInput.value = '';
+    if (balancetesPisFileInput) balancetesPisFileInput.value = '';
 
     erpFileStatus.textContent = 'Nenhum arquivo selecionado';
     cityFileStatus.textContent = 'Nenhum arquivo selecionado';
@@ -966,6 +1191,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (se2CsrfFileName) { se2CsrfFileName.textContent = 'Nenhum arquivo selecionado'; se2CsrfFileName.classList.remove('active'); }
     if (agluCsrfFileName) { agluCsrfFileName.textContent = 'Nenhum arquivo selecionado'; agluCsrfFileName.classList.remove('active'); }
     if (r4020CsrfFileName) { r4020CsrfFileName.textContent = 'Nenhum arquivo selecionado'; r4020CsrfFileName.classList.remove('active'); }
+    if (sftFileName) { sftFileName.textContent = 'Nenhum arquivo selecionado'; sftFileName.classList.remove('active'); }
+    if (glosasFileName) { glosasFileName.textContent = 'Nenhum arquivo selecionado'; glosasFileName.classList.remove('active'); }
+    if (retencaoFileName) { retencaoFileName.textContent = 'Nenhum arquivo selecionado'; retencaoFileName.classList.remove('active'); }
+    if (balancetesPisFileName) { balancetesPisFileName.textContent = 'Nenhum arquivo selecionado'; balancetesPisFileName.classList.remove('active'); }
     dashboardGrid.style.display = 'none';
     const dashboardIssAudit = document.getElementById('dashboardIssAudit');
     if (dashboardIssAudit) dashboardIssAudit.style.display = 'none';
@@ -1004,6 +1233,15 @@ document.addEventListener('DOMContentLoaded', () => {
       fileState[fg].se2Active = false;
       fileState[fg].agluCsrfActive = false;
       fileState[fg].r4020CsrfActive = false;
+    } else if (fg === 'pis-cofins') {
+      fileState[fg].sftFile = null;
+      fileState[fg].glosasFile = null;
+      fileState[fg].retencaoFile = null;
+      fileState[fg].balancetesFiles = [];
+      fileState[fg].sftText = 'Nenhum arquivo selecionado';
+      fileState[fg].glosasText = 'Nenhum arquivo selecionado';
+      fileState[fg].retencaoText = 'Nenhum arquivo selecionado';
+      fileState[fg].balancetesText = 'Nenhum arquivo selecionado';
     } else {
       fileState[fg].erpFile = null;
       fileState[fg].cityFile = null;
@@ -1298,6 +1536,15 @@ document.addEventListener('DOMContentLoaded', () => {
       issHeaders.forEach(th => th.style.display = 'none');
     }
 
+    const standardTableWrapper = document.getElementById('standardTableWrapper');
+    const piscofinsResultsCards = document.getElementById('piscofinsResultsCards');
+    const tabGroup = document.getElementById('tabGroup');
+    const searchInput = document.getElementById('searchInput');
+    if (standardTableWrapper) standardTableWrapper.style.display = 'block';
+    if (piscofinsResultsCards) piscofinsResultsCards.style.display = 'none';
+    if (tabGroup) tabGroup.style.display = 'flex';
+    if (searchInput) searchInput.style.display = 'block';
+
     resultsSection.style.display = 'block';
     
     document.getElementById('uploadFormContainer').style.display = 'none';
@@ -1315,6 +1562,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const countDivergent = items.filter(i => i.status === 'DIVERGENTE').length;
     const countErpOnly = items.filter(i => i.status === 'SOMENTE_ERP').length;
     const countCityOnly = items.filter(i => i.status === 'SOMENTE_PREFEITURA').length;
+
+    let chartLabels = [];
+    let chartData = [];
+    let chartColors = [];
+
+    // Definição de labels e dados por módulo
+    if (currentMode === 'pis-cofins') {
+      chartLabels = ['Conciliado', 'Divergente'];
+      chartData = [countMatched, countDivergent];
+      chartColors = ['#34d399', '#f87171'];
+    } else if (currentMode === 'irrf' || currentMode === 'csrf') {
+      if (countErpOnly > 0) {
+        chartLabels = ['Conciliado', 'Divergente', 'Ausentes'];
+        chartData = [countMatched, countDivergent, countErpOnly];
+        chartColors = ['#34d399', '#f87171', '#fbbf24'];
+      } else {
+        chartLabels = ['Conciliado', 'Divergente'];
+        chartData = [countMatched, countDivergent];
+        chartColors = ['#34d399', '#f87171'];
+      }
+    } else {
+      chartLabels = ['Conciliado', 'Divergente', 'Apenas ERP', 'Apenas Prefeitura'];
+      chartData = [countMatched, countDivergent, countErpOnly, countCityOnly];
+      chartColors = ['#34d399', '#f87171', '#fbbf24', '#f59e0b'];
+    }
 
     if (accuracyChartInstance) {
       accuracyChartInstance.destroy();
@@ -1384,15 +1656,10 @@ document.addEventListener('DOMContentLoaded', () => {
     accuracyChartInstance = new Chart(ctx, {
       type: 'doughnut',
       data: {
-        labels: ['Conciliado', 'Divergente', 'Apenas ERP', 'Apenas Prefeitura'],
+        labels: chartLabels,
         datasets: [{
-          data: [countMatched, countDivergent, countErpOnly, countCityOnly],
-          backgroundColor: [
-            '#34d399', // status-success-text
-            '#f87171', // status-danger-text
-            '#fbbf24', // status-warning-text
-            '#f59e0b'  // status-warning-text darker
-          ],
+          data: chartData,
+          backgroundColor: chartColors,
           borderWidth: 0,
           hoverOffset: 4,
           radius: '90%',
@@ -1454,15 +1721,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Custom Legend Rendering
     const legendContainer = document.getElementById('customLegend');
-    const colors = ['#34d399', '#f87171', '#fbbf24', '#f59e0b'];
-    const labels = ['Conciliado', 'Divergente', 'Apenas ERP', 'Apenas Prefeitura'];
-    
-    legendContainer.innerHTML = labels.map((label, index) => `
-      <div class="legend-item">
-        <div class="legend-color" style="background-color: ${colors[index]}"></div>
-        <span>${label}</span>
-      </div>
-    `).join('');
+    if (legendContainer) {
+      legendContainer.innerHTML = chartLabels.map((label, index) => `
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: ${chartColors[index]}"></div>
+          <span>${label}</span>
+        </div>
+      `).join('');
+    }
   }
 
   function filterAndRenderTable() {
@@ -1639,7 +1905,285 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  if (btnStartPisCofinsAudit) {
+    btnStartPisCofinsAudit.addEventListener('click', async () => {
+      if (!selectedSftFile || !selectedGlosasFile || !selectedRetencaoFile) {
+        alert('Por favor, selecione os relatórios de SFT, Glosas e Retenções PIS/COFINS antes de iniciar a apuração.');
+        return;
+      }
 
+      startSmoothProgress(
+        'Apuração de PIS / COFINS (Regime Cumulativo)',
+        [
+          'Lendo Relatório SFT (Faturamento Bruto)...',
+          'Processando Deduções de Glosas (Aba Dinâmica)...',
+          'Analisando Razão Contábil de Retenções (PIS/COFINS)...',
+          'Extraindo Balancetes e Cruzando Apuração Fiscal...'
+        ]
+      );
+
+      try {
+        const formData = new FormData();
+        formData.append('sft_file', selectedSftFile);
+        formData.append('glosas_file', selectedGlosasFile);
+        formData.append('retencao_file', selectedRetencaoFile);
+
+        if (selectedBalancetesPisFiles && selectedBalancetesPisFiles.length > 0) {
+          for (const file of selectedBalancetesPisFiles) {
+            const fname = file.name.toLowerCase();
+            if (fname.includes('receita')) {
+              formData.append('balancete_receita_file', file);
+            } else if (fname.includes('recuperar')) {
+              formData.append('balancete_recuperar_file', file);
+            } else if (!formData.has('balancete_receita_file')) {
+              formData.append('balancete_receita_file', file);
+            } else {
+              formData.append('balancete_recuperar_file', file);
+            }
+          }
+        }
+
+        const response = await fetch('/api/reconcile-piscofins', { method: 'POST', body: formData });
+        const data = await response.json();
+
+        await finishSmoothProgress();
+
+        if (data.success) {
+          moduleState['pis-cofins'] = moduleState['pis-cofins'] || {};
+          moduleState['pis-cofins'].reconciliationData = data.result;
+          moduleState['pis-cofins'].batchData = null;
+
+          document.getElementById('uploadFormContainer').style.display = 'none';
+          renderPisCofinsResults(data.result);
+        } else {
+          alert(data.error || 'Falha na apuração de PIS/COFINS.');
+        }
+      } catch (err) {
+        if (activeProgressTimer) clearInterval(activeProgressTimer);
+        hideProgressModal();
+        alert('Erro ao processar PIS/COFINS: ' + (err.message || err));
+      }
+    });
+  }
+
+  function renderPisCofinsResults(result) {
+    if (!result) return;
+    currentReconciliationData = result;
+    currentReconciliationData._piscofins_mode = true;
+
+    const resumo = result.resumo || {};
+    const apuracaoPis = result.apuracao_pis || [];
+    const apuracaoCofins = result.apuracao_cofins || [];
+
+    // Mapeamento dos itens para a tabela unificada
+    const items = apuracaoPis.map((pisItem, idx) => {
+      const cofinsItem = apuracaoCofins[idx] || {};
+      return {
+        status: pisItem.status === 'Conciliado' ? 'CONCILIADO' : 'DIVERGENTE',
+        matriz: pisItem.matriz,
+        nome: pisItem.nome,
+        uf: pisItem.uf,
+        faturamento_bruto: pisItem.faturamento,
+        glosas: pisItem.glosas,
+        base_calculo: pisItem.base_calculo,
+        pis_devido: pisItem.pis_devido,
+        pis_retido: pisItem.pis_retido,
+        pis_a_pagar: pisItem.pis_a_pagar,
+        cofins_devido: cofinsItem.cofins_devido || 0,
+        cofins_retido: cofinsItem.cofins_retido || 0,
+        cofins_a_pagar: cofinsItem.cofins_a_pagar || 0,
+        diagnostico: pisItem.status === 'Conciliado' ? 'Apuração em conformidade com Balancete' : 'Divergência de saldo contábil'
+      };
+    });
+
+    currentReconciliationData.items = items;
+
+    // Configurar Visibilidade: Ocultar tabela padrão e tabs/busca; Exibir cards de PIS/COFINS
+    const standardTableWrapper = document.getElementById('standardTableWrapper');
+    const piscofinsResultsCards = document.getElementById('piscofinsResultsCards');
+    const tabGroup = document.getElementById('tabGroup');
+    const searchInput = document.getElementById('searchInput');
+
+    if (standardTableWrapper) standardTableWrapper.style.display = 'none';
+    if (tabGroup) tabGroup.style.display = 'none';
+    if (searchInput) searchInput.style.display = 'none';
+    if (piscofinsResultsCards) piscofinsResultsCards.style.display = 'grid';
+
+    // Cálculo dos Totais PIS/COFINS a Pagar
+    const totalPisPagar = resumo.pis_a_pagar || 0;
+    const totalCofinsPagar = resumo.cofins_a_pagar || 0;
+    const totalAuditadoPiscofins = totalPisPagar + totalCofinsPagar;
+
+    const conciliados = items.filter(i => i.status === 'CONCILIADO');
+    const divergentes = items.filter(i => i.status !== 'CONCILIADO');
+
+    const totalPisConciliado = conciliados.reduce((acc, i) => acc + (i.pis_a_pagar || 0), 0);
+    const totalCofinsConciliado = conciliados.reduce((acc, i) => acc + (i.cofins_a_pagar || 0), 0);
+    const totalConciliadoPiscofins = totalPisConciliado + totalCofinsConciliado;
+
+    const totalPisDivergente = divergentes.reduce((acc, i) => acc + (i.pis_a_pagar || 0), 0);
+    const totalCofinsDivergente = divergentes.reduce((acc, i) => acc + (i.cofins_a_pagar || 0), 0);
+    const totalDivergentePiscofins = totalPisDivergente + totalCofinsDivergente;
+
+    // Preencher Cards do Dashboard
+    const elTotal = document.getElementById('statTotalAudited');
+    const elTotalCount = document.getElementById('statTotalCount');
+    const elMatchedVal = document.getElementById('statMatchedVal');
+    const elMatchedCount = document.getElementById('statMatchedCount');
+    const elDivVal = document.getElementById('statDivergentVal');
+    const elDivCount = document.getElementById('statDivergentCount');
+    const elAccuracy = document.getElementById('statAccuracy');
+    const elToleranceInfo = document.getElementById('statToleranceInfo');
+
+    const statTitles = document.querySelectorAll('#dashboardGrid .stat-card .stat-title');
+    if (statTitles.length >= 4) {
+      statTitles[0].textContent = 'Total Auditado';
+      statTitles[1].textContent = 'Total Conciliado';
+      statTitles[2].textContent = 'Divergências';
+      statTitles[3].textContent = 'Assertividade';
+    }
+
+    // Card 1: Total Auditado (Soma PIS + COFINS a Pagar)
+    if (elTotal) elTotal.textContent = formatCurrency(totalAuditadoPiscofins);
+    if (elTotalCount) elTotalCount.textContent = `PIS: ${formatCurrency(totalPisPagar)} | COFINS: ${formatCurrency(totalCofinsPagar)}`;
+
+    // Card 2: Total Conciliado
+    if (elMatchedVal) elMatchedVal.textContent = formatCurrency(totalConciliadoPiscofins);
+    if (elMatchedCount) elMatchedCount.textContent = `PIS: ${formatCurrency(totalPisConciliado)} | COFINS: ${formatCurrency(totalCofinsConciliado)}`;
+
+    // Card 3: Divergências
+    if (elDivVal) elDivVal.textContent = formatCurrency(totalDivergentePiscofins);
+    if (elDivCount) {
+      if (totalDivergentePiscofins > 0) {
+        elDivCount.textContent = `PIS: ${formatCurrency(totalPisDivergente)} | COFINS: ${formatCurrency(totalCofinsDivergente)}`;
+      } else {
+        elDivCount.textContent = `PIS: R$ 0,00 | COFINS: R$ 0,00`;
+      }
+    }
+
+    // Card 4: Assertividade
+    if (elAccuracy) elAccuracy.textContent = `${resumo.taxa_assertividade || '100.0'}%`;
+    if (elToleranceInfo) elToleranceInfo.textContent = 'Tolerância: R$ 0,04';
+
+    const elCountAll = document.getElementById('countAll');
+    const elCountMatched = document.getElementById('countMatched');
+    const elCountDivergent = document.getElementById('countDivergent');
+    if (elCountAll) elCountAll.textContent = items.length;
+    if (elCountMatched) elCountMatched.textContent = conciliados.length;
+    if (elCountDivergent) elCountDivergent.textContent = divergentes.length;
+
+    // Renderizar Gráfico Circular
+    renderChart(items);
+
+    // Gerar os Cards Estruturados Lado a Lado para PIS e COFINS
+    if (piscofinsResultsCards) {
+      piscofinsResultsCards.innerHTML = '';
+      
+      items.forEach(item => {
+        const pisCardHtml = `
+          <div class="calc-card pis-card">
+            <div class="calc-card-header">
+              <div class="calc-card-title-group">
+                <div class="calc-card-title">
+                  <span>🟢</span> Apuração de PIS (0,65%)
+                </div>
+                <div class="calc-card-subtitle">${item.nome} (${item.matriz}) &bull; ${item.uf}</div>
+              </div>
+              <span class="badge ${item.status === 'CONCILIADO' ? 'badge-success' : 'badge-danger'}">
+                ${item.status === 'CONCILIADO' ? 'Conciliado' : 'Divergente'}
+              </span>
+            </div>
+            <div class="calc-card-body">
+              <div class="calc-row">
+                <span class="calc-row-label">Faturamento Bruto (SFT)</span>
+                <span class="calc-row-val">${formatCurrency(item.faturamento_bruto)}</span>
+              </div>
+              <div class="calc-row">
+                <span class="calc-row-label">(-) Glosas Baixadas (Operadora)</span>
+                <span class="calc-row-val" style="color: #dc2626;">${formatCurrency(item.glosas)}</span>
+              </div>
+              <div class="calc-row">
+                <span class="calc-row-label">(=) Base de Cálculo Líquida</span>
+                <span class="calc-row-val"><strong>${formatCurrency(item.base_calculo)}</strong></span>
+              </div>
+              <div class="calc-row">
+                <span class="calc-row-label">(×) Alíquota PIS</span>
+                <span class="calc-row-val">0,65%</span>
+              </div>
+              <div class="calc-row">
+                <span class="calc-row-label">(=) PIS Devido Geral</span>
+                <span class="calc-row-val">${formatCurrency(item.pis_devido)}</span>
+              </div>
+              <div class="calc-row">
+                <span class="calc-row-label">(-) PIS Retido na Fonte</span>
+                <span class="calc-row-val" style="color: #d97706;">${formatCurrency(item.pis_retido)}</span>
+              </div>
+              <hr class="calc-divider">
+              <div class="calc-row calc-row-total">
+                <span class="calc-row-label">(=) PIS a Recolher</span>
+                <span class="calc-row-val pis-val-highlight">${formatCurrency(item.pis_a_pagar)}</span>
+              </div>
+            </div>
+          </div>
+        `;
+
+        const cofinsCardHtml = `
+          <div class="calc-card cofins-card">
+            <div class="calc-card-header">
+              <div class="calc-card-title-group">
+                <div class="calc-card-title">
+                  <span>🟢</span> Apuração de COFINS (3,00%)
+                </div>
+                <div class="calc-card-subtitle">${item.nome} (${item.matriz}) &bull; ${item.uf}</div>
+              </div>
+              <span class="badge ${item.status === 'CONCILIADO' ? 'badge-success' : 'badge-danger'}">
+                ${item.status === 'CONCILIADO' ? 'Conciliado' : 'Divergente'}
+              </span>
+            </div>
+            <div class="calc-card-body">
+              <div class="calc-row">
+                <span class="calc-row-label">Faturamento Bruto (SFT)</span>
+                <span class="calc-row-val">${formatCurrency(item.faturamento_bruto)}</span>
+              </div>
+              <div class="calc-row">
+                <span class="calc-row-label">(-) Glosas Baixadas (Operadora)</span>
+                <span class="calc-row-val" style="color: #dc2626;">${formatCurrency(item.glosas)}</span>
+              </div>
+              <div class="calc-row">
+                <span class="calc-row-label">(=) Base de Cálculo Líquida</span>
+                <span class="calc-row-val"><strong>${formatCurrency(item.base_calculo)}</strong></span>
+              </div>
+              <div class="calc-row">
+                <span class="calc-row-label">(×) Alíquota COFINS</span>
+                <span class="calc-row-val">3,00%</span>
+              </div>
+              <div class="calc-row">
+                <span class="calc-row-label">(=) COFINS Devido Geral</span>
+                <span class="calc-row-val">${formatCurrency(item.cofins_devido)}</span>
+              </div>
+              <div class="calc-row">
+                <span class="calc-row-label">(-) COFINS Retido na Fonte</span>
+                <span class="calc-row-val" style="color: #d97706;">${formatCurrency(item.cofins_retido)}</span>
+              </div>
+              <hr class="calc-divider">
+              <div class="calc-row calc-row-total cofins-total">
+                <span class="calc-row-label">(=) COFINS a Recolher</span>
+                <span class="calc-row-val cofins-val-highlight">${formatCurrency(item.cofins_a_pagar)}</span>
+              </div>
+            </div>
+          </div>
+        `;
+
+        piscofinsResultsCards.innerHTML += pisCardHtml + cofinsCardHtml;
+      });
+    }
+
+    // Exibir seções
+    dashboardGrid.style.display = 'grid';
+    const chartContainer = document.getElementById('chartContainer');
+    if (chartContainer) chartContainer.style.display = 'flex';
+    resultsSection.style.display = 'block';
+  }
 
   function renderCsrfResults(result) {
     if (!result) return;
@@ -1761,6 +2305,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dashboardBalanceteAudit) dashboardBalanceteAudit.style.display  = 'none';
 
     // Exibir a UI padrão (igual aos outros módulos)
+    const standardTableWrapper = document.getElementById('standardTableWrapper');
+    const piscofinsResultsCards = document.getElementById('piscofinsResultsCards');
+    const tabGroup = document.getElementById('tabGroup');
+    const searchInput = document.getElementById('searchInput');
+    if (standardTableWrapper) standardTableWrapper.style.display = 'block';
+    if (piscofinsResultsCards) piscofinsResultsCards.style.display = 'none';
+    if (tabGroup) tabGroup.style.display = 'flex';
+    if (searchInput) searchInput.style.display = 'block';
+
     dashboardGrid.style.display = 'grid';
     document.getElementById('uploadFormContainer').style.display = 'none';
     document.getElementById('chartContainer').style.display = 'flex';
@@ -1945,6 +2498,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dashboardBalanceteAudit) dashboardBalanceteAudit.style.display  = 'none';
 
     // Exibir a UI padrão (igual aos outros módulos)
+    const standardTableWrapper = document.getElementById('standardTableWrapper');
+    const piscofinsResultsCards = document.getElementById('piscofinsResultsCards');
+    const tabGroup = document.getElementById('tabGroup');
+    const searchInput = document.getElementById('searchInput');
+    if (standardTableWrapper) standardTableWrapper.style.display = 'block';
+    if (piscofinsResultsCards) piscofinsResultsCards.style.display = 'none';
+    if (tabGroup) tabGroup.style.display = 'flex';
+    if (searchInput) searchInput.style.display = 'block';
+
     dashboardGrid.style.display = 'grid';
     document.getElementById('uploadFormContainer').style.display = 'none';
     document.getElementById('chartContainer').style.display = 'flex';
@@ -2044,7 +2606,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const items = data.items || [];
     
     let moduloNome = 'Geral';
-    if (data._csrf_mode || currentMode === 'csrf') {
+    if (data._piscofins_mode || currentMode === 'pis-cofins') {
+      moduloNome = 'PIS_COFINS';
+    } else if (data._csrf_mode || currentMode === 'csrf') {
       moduloNome = 'CSRF_PCC';
     } else if (data._irrf_mode || currentMode === 'irrf') {
       moduloNome = 'IRRF';
@@ -2057,27 +2621,81 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 1. Aba Resumo
-    const resumoAoa = [
-      ['RELATÓRIO CONSOLIDADO DE CONCILIAÇÃO FISCAL - HOME DOCTOR'],
-      ['Módulo:', moduloNome.replace('_', ' ')],
-      ['Data de Extração:', new Date().toLocaleString('pt-BR')],
-      [],
-      ['INDICADORES DO DASHBOARD', 'VALORES'],
-      ['Total Auditado (Qtd Documentos)', resumo.total_erp_qtd || items.length],
-      ['Total Auditado (R$)', resumo.total_erp_valor || 0],
-      ['Total Conciliado (Qtd)', resumo.conciliados_qtd || 0],
-      ['Total Conciliado (R$)', resumo.conciliados_valor || 0],
-      ['Total Divergências (Qtd)', resumo.divergentes_qtd || 0],
-      ['Total Divergências (R$)', resumo.divergentes_valor || 0],
-      ['Total Ausentes (Qtd)', resumo.ausentes_qtd || 0],
-      ['Taxa de Assertividade', `${resumo.taxa_assertividade || '0.0'}%`]
-    ];
+    let resumoAoa = [];
+    if (data._piscofins_mode || currentMode === 'pis-cofins') {
+      resumoAoa = [
+        ['DEMONSTRATIVO DE APURAÇÃO DE PIS / COFINS (CUMULATIVO) - HOME DOCTOR'],
+        ['Módulo:', 'PIS / COFINS'],
+        ['Data de Extração:', new Date().toLocaleString('pt-BR')],
+        [],
+        ['INDICADORES FISCAIS & CONTÁBEIS', 'VALORES (R$)'],
+        ['Faturamento Bruto (SFT)', resumo.faturamento_bruto || 0],
+        ['Deduções de Glosas (Operadora)', resumo.total_glosas || 0],
+        ['Base de Cálculo Líquida', resumo.base_calculo || 0],
+        ['PIS Devido Geral (0,65%)', resumo.pis_devido || 0],
+        ['PIS Retido na Fonte', resumo.pis_retido || 0],
+        ['PIS a Recolher', resumo.pis_a_pagar || 0],
+        ['COFINS Devido Geral (3,00%)', resumo.cofins_devido || 0],
+        ['COFINS Retido na Fonte', resumo.cofins_retido || 0],
+        ['COFINS a Recolher', resumo.cofins_a_pagar || 0],
+        ['Balancete Receitas (Conta 3.1.2.03.0004)', resumo.balancete_receita_valor || 0],
+        ['Balancete A Recuperar (Conta 1.1.3.09.0003)', resumo.balancete_recuperar_valor || 0],
+        ['Assertividade Contábil', `${resumo.taxa_assertividade || '100.0'}%`]
+      ];
+    } else {
+      resumoAoa = [
+        ['RELATÓRIO CONSOLIDADO DE CONCILIAÇÃO FISCAL - HOME DOCTOR'],
+        ['Módulo:', moduloNome.replace('_', ' ')],
+        ['Data de Extração:', new Date().toLocaleString('pt-BR')],
+        [],
+        ['INDICADORES DO DASHBOARD', 'VALORES'],
+        ['Total Auditado (Qtd Documentos)', resumo.total_erp_qtd || items.length],
+        ['Total Auditado (R$)', resumo.total_erp_valor || 0],
+        ['Total Conciliado (Qtd)', resumo.conciliados_qtd || 0],
+        ['Total Conciliado (R$)', resumo.conciliados_valor || 0],
+        ['Total Divergências (Qtd)', resumo.divergentes_qtd || 0],
+        ['Total Divergências (R$)', resumo.divergentes_valor || 0],
+        ['Total Ausentes (Qtd)', resumo.ausentes_qtd || 0],
+        ['Taxa de Assertividade', `${resumo.taxa_assertividade || '0.0'}%`]
+      ];
+    }
 
     // 2. Aba Dados
     let dadosHeaders = [];
     let dadosRows = [];
 
-    if (data._csrf_mode || currentMode === 'csrf') {
+    if (data._piscofins_mode || currentMode === 'pis-cofins') {
+      dadosHeaders = [
+        'Status',
+        'Matriz / Filial',
+        'Unidade',
+        'UF',
+        'Faturamento Bruto (R$)',
+        'Glosas (R$)',
+        'Base de Cálculo (R$)',
+        'PIS Devido (0,65%)',
+        'PIS Retido (R$)',
+        'PIS a Pagar (R$)',
+        'COFINS Devido (3,00%)',
+        'COFINS Retido (R$)',
+        'COFINS a Pagar (R$)'
+      ];
+      dadosRows = items.map(item => [
+        item.status === 'CONCILIADO' ? 'Conciliado' : 'Divergente',
+        item.matriz || '',
+        item.nome || '',
+        item.uf || '',
+        item.faturamento_bruto || 0,
+        item.glosas || 0,
+        item.base_calculo || 0,
+        item.pis_devido || 0,
+        item.pis_retido || 0,
+        item.pis_a_pagar || 0,
+        item.cofins_devido || 0,
+        item.cofins_retido || 0,
+        item.cofins_a_pagar || 0
+      ]);
+    } else if (data._csrf_mode || currentMode === 'csrf') {
       dadosHeaders = [
         'Status',
         'Documento',

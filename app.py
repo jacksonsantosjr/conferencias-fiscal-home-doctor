@@ -46,6 +46,7 @@ from parsers.balancete_parser import BalanceteParser
 from engine.reconciler import ReconciliationEngine
 from parsers.irrf_reconciler import IRRFReconciler
 from parsers.csrf_reconciler import CSRFReconciler
+from parsers.piscofins_reconciler import PisCofinsReconciler
 
 PORT = 8000
 
@@ -138,6 +139,8 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_irrf_reconcile()
         elif self.path == "/api/reconcile-csrf":
             self.handle_csrf_reconcile()
+        elif self.path == "/api/reconcile-piscofins":
+            self.handle_piscofins_reconcile()
         else:
             self.send_error(404, "Endpoint não encontrado")
 
@@ -846,6 +849,55 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
 
         except Exception as e:
             self.send_json_response({"success": False, "error": f"Erro no processamento de CSRF: {str(e)}"})
+
+    def handle_piscofins_reconcile(self):
+        try:
+            content_type = self.headers.get('content-type', '')
+            if 'multipart/form-data' not in content_type:
+                self.send_json_response({"success": False, "error": "Formato de envio inválido."})
+                return
+
+            boundary_str = None
+            for part in content_type.split(';'):
+                part = part.strip()
+                if part.startswith('boundary='):
+                    boundary_str = part.split('=', 1)[1].strip('"\'')
+
+            if not boundary_str:
+                self.send_json_response({"success": False, "error": "Boundary do formulário não encontrado."})
+                return
+
+            content_length = int(self.headers.get('content-length', 0))
+            body_bytes = self.rfile.read(content_length)
+
+            fields = parse_multipart_data(body_bytes, boundary_str.encode('utf-8'))
+
+            sft_bytes = fields.get('sft_file')
+            glosas_bytes = fields.get('glosas_file')
+            retencao_bytes = fields.get('retencao_file')
+            bal_rec_bytes = fields.get('balancete_receita_file')
+            bal_recup_bytes = fields.get('balancete_recuperar_file')
+
+            if not sft_bytes or not glosas_bytes or not retencao_bytes:
+                self.send_json_response({
+                    "success": False, 
+                    "error": "Os relatórios de SFT, Glosas e Retenções PIS/COFINS são obrigatórios."
+                })
+                return
+
+            reconciler = PisCofinsReconciler()
+            result = reconciler.reconcile(
+                sft_file=io.BytesIO(sft_bytes),
+                glosas_file=io.BytesIO(glosas_bytes),
+                retencao_file=io.BytesIO(retencao_bytes),
+                balancete_receita=io.BytesIO(bal_rec_bytes) if bal_rec_bytes else None,
+                balancete_recuperar=io.BytesIO(bal_recup_bytes) if bal_recup_bytes else None
+            )
+
+            self.send_json_response({"success": True, "result": result})
+
+        except Exception as e:
+            self.send_json_response({"success": False, "error": f"Erro no processamento de PIS/COFINS: {str(e)}"})
 
     def send_json_response(self, data: Dict[str, Any], status_code: int = 200):
         def custom_encoder(obj):

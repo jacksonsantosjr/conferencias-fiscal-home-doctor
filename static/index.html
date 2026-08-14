@@ -60,10 +60,9 @@
           <span class="nav-text">CSRF (PCC)</span>
         </a>
 
-        <a href="#" class="nav-item disabled" data-module="pis-cofins" title="PIS / COFINS (Em breve)">
+        <a href="#" class="nav-item" data-module="pis-cofins" title="PIS / COFINS">
           <span class="nav-icon">📈</span>
           <span class="nav-text">PIS / COFINS</span>
-          <span class="badge-soon">Em breve</span>
         </a>
       </nav>
 
@@ -215,6 +214,45 @@
               </div>
             </div>
 
+            <!-- Upload Grid para PIS / COFINS -->
+            <div class="upload-grid upload-grid-4" id="uploadGridPisCofins" style="display: none;">
+              <!-- Dropzone SFT -->
+              <div class="dropzone" id="dropzoneSft">
+                <div class="dropzone-icon">📊</div>
+                <h3>Relatório SFT</h3>
+                <p>Faturamento Bruto (.csv, .xlsx)</p>
+                <div class="file-status" id="sftFileStatus">Nenhum arquivo selecionado</div>
+                <input type="file" id="sft-file" accept=".csv, .xlsx, .xls">
+              </div>
+
+              <!-- Dropzone Glosas -->
+              <div class="dropzone" id="dropzoneGlosas">
+                <div class="dropzone-icon">📉</div>
+                <h3>Relatório de Glosas</h3>
+                <p>Aba Dinâmica (Excel)</p>
+                <div class="file-status" id="glosasFileStatus">Nenhum arquivo selecionado</div>
+                <input type="file" id="glosas-file" accept=".xlsx, .xls">
+              </div>
+
+              <!-- Dropzone Retenções -->
+              <div class="dropzone" id="dropzoneRetencao">
+                <div class="dropzone-icon">📑</div>
+                <h3>Retenções PIS/COFINS</h3>
+                <p>Razão Contábil (Excel)</p>
+                <div class="file-status" id="retencaoFileStatus">Nenhum arquivo selecionado</div>
+                <input type="file" id="retencao-file" accept=".xlsx, .xls">
+              </div>
+
+              <!-- Dropzone Balancetes -->
+              <div class="dropzone" id="dropzoneBalancetesPis">
+                <div class="dropzone-icon">🏛️</div>
+                <h3>Balancetes Consolidados</h3>
+                <p>Receitas e A Recuperar (PDF)</p>
+                <div class="file-status" id="balancetesPisFileStatus">Nenhum arquivo selecionado</div>
+                <input type="file" id="balancetes-pis-file" accept=".pdf" multiple>
+              </div>
+            </div>
+
             <div class="action-bar">
               <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                 <button type="button" class="btn-batch" id="btnBatchModal" title="Abrir Painel de Conferência em Lote de Todas as Prefeituras">
@@ -232,6 +270,10 @@
 
               <button type="button" class="btn-primary" id="reconcile-csrf-btn" style="display: none;">
                 <span>Iniciar Conciliação de CSRF (PCC)</span>
+              </button>
+
+              <button type="button" class="btn-primary" id="reconcile-piscofins-btn" style="display: none;">
+                <span>Iniciar Apuração de PIS/COFINS</span>
               </button>
             </div>
           </div>
@@ -275,7 +317,7 @@
           <div class="glass-panel stat-card sobras">
             <div class="stat-title">Assertividade</div>
             <div class="stat-value" id="statAccuracy" style="color: var(--status-info-text);">0%</div>
-            <div class="stat-sub" id="statToleranceInfo">Tolerância: R$ 0,04</div>
+            <div class="stat-sub" id="statToleranceInfo" style="display: none;">Tolerância: R$ 0,04</div>
           </div>
         </section>
 
@@ -348,8 +390,8 @@
             </div>
           </div>
 
-          <!-- Tabela -->
-          <div class="table-wrapper">
+          <!-- Tabela Padrão (ISS, Faturamento, IRRF, CSRF) -->
+          <div class="table-wrapper" id="standardTableWrapper">
             <table class="data-table">
               <thead>
                 <tr>
@@ -370,6 +412,11 @@
                 <!-- Linhas dinâmicas preenchidas via JS -->
               </tbody>
             </table>
+          </div>
+
+          <!-- Demonstrativo Visual de PIS e COFINS em Cards Lado a Lado -->
+          <div id="piscofinsResultsCards" class="piscofins-grid-container" style="display: none;">
+            <!-- Preenchido dinamicamente via JS com cards de PIS e COFINS -->
           </div>
         </section>
 

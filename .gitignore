@@ -26,3 +26,7 @@ wheels/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Temporários
+temp_*
+
