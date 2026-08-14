@@ -76,17 +76,20 @@ document.addEventListener('DOMContentLoaded', () => {
     faturamento: { reconciliationData: null, batchData: null },
     iss: { reconciliationData: null, batchData: null },
     'iss-tomados': { reconciliationData: null, batchData: null },
-    irrf: { reconciliationData: null, batchData: null }
+    irrf: { reconciliationData: null, batchData: null },
+    csrf: { reconciliationData: null, batchData: null }
   };
 
   const fileState = {
     prestados: { erpFile: null, cityFile: null, zipFile: null, erpText: 'Nenhum arquivo selecionado', cityText: 'Nenhum arquivo selecionado', zipText: 'Nenhum arquivo compactado selecionado', erpActive: false, cityActive: false, zipActive: false },
     tomados: { erpFile: null, cityFile: null, zipFile: null, erpText: 'Nenhum arquivo selecionado', cityText: 'Nenhum arquivo selecionado', zipText: 'Nenhum arquivo compactado selecionado', erpActive: false, cityActive: false, zipActive: false },
-    irrf: { sf1File: null, agluFile: null, r4020File: null, sf1Text: 'Nenhum arquivo selecionado', agluText: 'Nenhum arquivo selecionado', r4020Text: 'Nenhum arquivo selecionado' }
+    irrf: { sf1File: null, agluFile: null, r4020File: null, sf1Text: 'Nenhum arquivo selecionado', agluText: 'Nenhum arquivo selecionado', r4020Text: 'Nenhum arquivo selecionado' },
+    csrf: { se2File: null, agluFile: null, r4020File: null, se2Text: 'Nenhum arquivo selecionado', agluText: 'Nenhum arquivo selecionado', r4020Text: 'Nenhum arquivo selecionado' }
   };
 
   function getFileGroup(mode) {
     if (mode === 'irrf') return 'irrf';
+    if (mode === 'csrf') return 'csrf';
     return mode === 'iss-tomados' ? 'tomados' : 'prestados';
   }
 
@@ -94,14 +97,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const sf1FileInput = document.getElementById('sf1-file');
   const agluFileInput = document.getElementById('aglu-file');
   const r4020FileInput = document.getElementById('r4020-file');
+  const se2CsrfFileInput = document.getElementById('se2-file');
+  const agluCsrfFileInput = document.getElementById('aglu-csrf-file');
+  const r4020CsrfFileInput = document.getElementById('r4020-csrf-file');
   const sf1FileName = document.getElementById('sf1FileStatus');
   const agluFileName = document.getElementById('agluFileStatus');
   const r4020FileName = document.getElementById('r4020FileStatus');
   const btnStartIrrfAudit = document.getElementById('reconcile-irrf-btn');
+  const btnStartCsrfAudit = document.getElementById('reconcile-csrf-btn');
 
   let selectedSf1File = null;
   let selectedAgluFile = null;
   let selectedR4020File = null;
+
+  let selectedSe2CsrfFile = null;
+  let selectedAgluCsrfFile = null;
+  let selectedR4020CsrfFile = null;
+  const se2CsrfFileName = document.getElementById('se2FileStatus');
+  const agluCsrfFileName = document.getElementById('agluCsrfFileStatus');
+  const r4020CsrfFileName = document.getElementById('r4020CsrfFileStatus');
 
   // ========================================================
   // GERENCIAMENTO DA SIDEBAR RETRÁTIL (CND STYLE)
@@ -138,6 +152,13 @@ document.addEventListener('DOMContentLoaded', () => {
         fileState[fgOld].sf1Text = sf1FileName ? sf1FileName.textContent : 'Nenhum arquivo selecionado';
         fileState[fgOld].agluText = agluFileName ? agluFileName.textContent : 'Nenhum arquivo selecionado';
         fileState[fgOld].r4020Text = r4020FileName ? r4020FileName.textContent : 'Nenhum arquivo selecionado';
+      } else if (currentMode === 'csrf') {
+        fileState[fgOld].se2File = selectedSe2CsrfFile;
+        fileState[fgOld].agluCsrfFile = selectedAgluCsrfFile;
+        fileState[fgOld].r4020CsrfFile = selectedR4020CsrfFile;
+        fileState[fgOld].se2Text = se2CsrfFileName ? se2CsrfFileName.textContent : 'Nenhum arquivo selecionado';
+        fileState[fgOld].agluCsrfText = agluCsrfFileName ? agluCsrfFileName.textContent : 'Nenhum arquivo selecionado';
+        fileState[fgOld].r4020CsrfText = r4020CsrfFileName ? r4020CsrfFileName.textContent : 'Nenhum arquivo selecionado';
       } else {
         fileState[fgOld].erpFile = selectedErpFile;
         fileState[fgOld].cityFile = selectedCityFile;
@@ -159,9 +180,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const btnBatchModal = document.getElementById('btnBatchModal');
       const btnStartAudit = document.getElementById('btnStartAudit');
       const btnStartIrrf = document.getElementById('reconcile-irrf-btn');
+      const btnStartCsrf = document.getElementById('reconcile-csrf-btn');
       
       const resultsSection = document.getElementById('resultsSection');
       const irrfResultsSection = document.getElementById('irrf-results');
+      const csrfResultsSection = document.getElementById('csrf-results');
 
       if (mod === 'irrf') {
         currentMode = 'irrf';
@@ -171,28 +194,64 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (uploadGridContainer) uploadGridContainer.style.display = 'none';
         if (uploadGridIrrf) uploadGridIrrf.style.display = 'grid';
+        const uploadGridCsrf = document.getElementById('uploadGridCsrf');
+        if (uploadGridCsrf) uploadGridCsrf.style.display = 'none';
+        
         if (cityBadgeSelect) cityBadgeSelect.style.display = 'none';
         
         if (btnBatchModal) btnBatchModal.parentElement.style.display = 'none';
         if (btnStartAudit) btnStartAudit.style.display = 'none';
         if (btnStartIrrf) btnStartIrrf.style.display = 'inline-flex';
+        if (btnStartCsrf) btnStartCsrf.style.display = 'none';
         
         if (resultsSection) resultsSection.style.display = 'none';
+        if (csrfResultsSection) csrfResultsSection.style.display = 'none';
         if (irrfResultsSection && moduleState['irrf'].reconciliationData) {
             irrfResultsSection.style.display = 'block';
         } else if (irrfResultsSection) {
             irrfResultsSection.style.display = 'none';
         }
+      } else if (mod === 'csrf') {
+        currentMode = 'csrf';
+        document.getElementById('moduleTitle').textContent = 'Conciliação de CSRF (PCC)';
+        document.getElementById('moduleSub').textContent = 'Cruze os relatórios de retenção de PIS/COFINS/CSLL para a geração da guia via DCTFWeb.';
+        document.querySelector('.upload-section h2').textContent = '⚖️ Importação dos Arquivos (CSRF)';
+        
+        if (uploadGridContainer) uploadGridContainer.style.display = 'none';
+        if (uploadGridIrrf) uploadGridIrrf.style.display = 'none';
+        const uploadGridCsrf = document.getElementById('uploadGridCsrf');
+        if (uploadGridCsrf) uploadGridCsrf.style.display = 'grid';
+        
+        // HIDE CITY SELECTOR
+        if (cityBadgeSelect) cityBadgeSelect.style.display = 'none';
+        
+        if (btnBatchModal) btnBatchModal.parentElement.style.display = 'none';
+        if (btnStartAudit) btnStartAudit.style.display = 'none';
+        if (btnStartIrrf) btnStartIrrf.style.display = 'none';
+        if (btnStartCsrf) btnStartCsrf.style.display = 'inline-flex';
+        
+        if (resultsSection) resultsSection.style.display = 'none';
+        if (irrfResultsSection) irrfResultsSection.style.display = 'none';
+        if (csrfResultsSection && moduleState['csrf'].reconciliationData) {
+            csrfResultsSection.style.display = 'block';
+        } else if (csrfResultsSection) {
+            csrfResultsSection.style.display = 'none';
+        }
       } else {
         if (uploadGridContainer) uploadGridContainer.style.display = 'grid';
         if (uploadGridIrrf) uploadGridIrrf.style.display = 'none';
+        const uploadGridCsrf = document.getElementById('uploadGridCsrf');
+        if (uploadGridCsrf) uploadGridCsrf.style.display = 'none';
+        
         if (cityBadgeSelect) cityBadgeSelect.style.display = 'flex';
         
         if (btnBatchModal) btnBatchModal.parentElement.style.display = 'flex';
         if (btnStartAudit) btnStartAudit.style.display = 'inline-flex';
         if (btnStartIrrf) btnStartIrrf.style.display = 'none';
+        if (btnStartCsrf) btnStartCsrf.style.display = 'none';
         
         if (irrfResultsSection) irrfResultsSection.style.display = 'none';
+        if (csrfResultsSection) csrfResultsSection.style.display = 'none';
         if (resultsSection && moduleState[currentMode].reconciliationData) {
             resultsSection.style.display = 'block';
         } else if (resultsSection) {
@@ -264,15 +323,47 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedSf1File = fileState[fgNew].sf1File;
         selectedAgluFile = fileState[fgNew].agluFile;
         selectedR4020File = fileState[fgNew].r4020File;
-        if(sf1FileName) sf1FileName.textContent = fileState[fgNew].sf1Text;
-        if(agluFileName) agluFileName.textContent = fileState[fgNew].agluText;
-        if(r4020FileName) r4020FileName.textContent = fileState[fgNew].r4020Text;
+        if(sf1FileName) sf1FileName.textContent = fileState[fgNew].sf1Text || 'Nenhum arquivo selecionado';
+        if(agluFileName) agluFileName.textContent = fileState[fgNew].agluText || 'Nenhum arquivo selecionado';
+        if(r4020FileName) r4020FileName.textContent = fileState[fgNew].r4020Text || 'Nenhum arquivo selecionado';
 
         if (currentReconciliationData) {
           renderIrrfResults(currentReconciliationData);
         } else {
+          dashboardGrid.style.display = 'none';
+          const dashboardIssAudit = document.getElementById('dashboardIssAudit');
+          if (dashboardIssAudit) dashboardIssAudit.style.display = 'none';
+          const dashboardBalanceteAudit = document.getElementById('dashboardBalanceteAudit');
+          if (dashboardBalanceteAudit) dashboardBalanceteAudit.style.display = 'none';
+          resultsSection.style.display = 'none';
+          document.getElementById('uploadFormContainer').style.display = 'block';
+          document.getElementById('chartContainer').style.display = 'none';
+          tableBody.innerHTML = '';
           const irrfResults = document.getElementById('irrf-results');
           if (irrfResults) irrfResults.style.display = 'none';
+        }
+      } else if (currentMode === 'csrf') {
+        selectedSe2CsrfFile = fileState[fgNew].se2File;
+        selectedAgluCsrfFile = fileState[fgNew].agluCsrfFile;
+        selectedR4020CsrfFile = fileState[fgNew].r4020CsrfFile;
+        if(se2CsrfFileName) se2CsrfFileName.textContent = fileState[fgNew].se2Text || 'Nenhum arquivo selecionado';
+        if(agluCsrfFileName) agluCsrfFileName.textContent = fileState[fgNew].agluCsrfText || 'Nenhum arquivo selecionado';
+        if(r4020CsrfFileName) r4020CsrfFileName.textContent = fileState[fgNew].r4020CsrfText || 'Nenhum arquivo selecionado';
+
+        if (currentReconciliationData) {
+          renderCsrfResults(currentReconciliationData);
+        } else {
+          dashboardGrid.style.display = 'none';
+          const dashboardIssAudit = document.getElementById('dashboardIssAudit');
+          if (dashboardIssAudit) dashboardIssAudit.style.display = 'none';
+          const dashboardBalanceteAudit = document.getElementById('dashboardBalanceteAudit');
+          if (dashboardBalanceteAudit) dashboardBalanceteAudit.style.display = 'none';
+          resultsSection.style.display = 'none';
+          document.getElementById('uploadFormContainer').style.display = 'block';
+          document.getElementById('chartContainer').style.display = 'none';
+          tableBody.innerHTML = '';
+          const csrfResultsSection = document.getElementById('csrf-results');
+          if (csrfResultsSection) csrfResultsSection.style.display = 'none';
         }
       } else {
         selectedErpFile = fileState[fgNew].erpFile;
@@ -449,6 +540,73 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedR4020File = e.target.files[0];
         r4020FileName.textContent = `📝 ${selectedR4020File.name}`;
         r4020FileName.classList.add('active');
+      }
+    });
+  }
+
+  const dropzoneSe2 = document.getElementById('dropzoneSe2');
+  const dropzoneAgluCsrf = document.getElementById('dropzoneAgluCsrf');
+  const dropzoneR4020Csrf = document.getElementById('dropzoneR4020Csrf');
+
+  if (dropzoneSe2) {
+    dropzoneSe2.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzoneSe2.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        se2CsrfFileInput.files = e.dataTransfer.files;
+        selectedSe2CsrfFile = e.dataTransfer.files[0];
+        se2CsrfFileName.textContent = `📊 ${selectedSe2CsrfFile.name}`;
+        se2CsrfFileName.classList.add('active');
+      }
+    });
+    dropzoneSe2.addEventListener('click', () => se2CsrfFileInput.click());
+    se2CsrfFileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        selectedSe2CsrfFile = e.target.files[0];
+        se2CsrfFileName.textContent = `📊 ${selectedSe2CsrfFile.name}`;
+        se2CsrfFileName.classList.add('active');
+      }
+    });
+  }
+
+  if (dropzoneAgluCsrf) {
+    dropzoneAgluCsrf.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzoneAgluCsrf.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        agluCsrfFileInput.files = e.dataTransfer.files;
+        selectedAgluCsrfFile = e.dataTransfer.files[0];
+        agluCsrfFileName.textContent = `📄 ${selectedAgluCsrfFile.name}`;
+        agluCsrfFileName.classList.add('active');
+      }
+    });
+    dropzoneAgluCsrf.addEventListener('click', () => agluCsrfFileInput.click());
+    agluCsrfFileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        selectedAgluCsrfFile = e.target.files[0];
+        agluCsrfFileName.textContent = `📄 ${selectedAgluCsrfFile.name}`;
+        agluCsrfFileName.classList.add('active');
+      }
+    });
+  }
+
+  if (dropzoneR4020Csrf) {
+    dropzoneR4020Csrf.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzoneR4020Csrf.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        r4020CsrfFileInput.files = e.dataTransfer.files;
+        selectedR4020CsrfFile = e.dataTransfer.files[0];
+        r4020CsrfFileName.textContent = `📝 ${selectedR4020CsrfFile.name}`;
+        r4020CsrfFileName.classList.add('active');
+      }
+    });
+    dropzoneR4020Csrf.addEventListener('click', () => r4020CsrfFileInput.click());
+    r4020CsrfFileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        selectedR4020CsrfFile = e.target.files[0];
+        r4020CsrfFileName.textContent = `📝 ${selectedR4020CsrfFile.name}`;
+        r4020CsrfFileName.classList.add('active');
       }
     });
   }
@@ -779,6 +937,9 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedSf1File = null;
     selectedAgluFile = null;
     selectedR4020File = null;
+    selectedSe2CsrfFile = null;
+    selectedAgluCsrfFile = null;
+    selectedR4020CsrfFile = null;
     currentReconciliationData = null;
     erpFileInput.value = '';
     cityFileInput.value = '';
@@ -790,6 +951,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sf1FileInput) sf1FileInput.value = '';
     if (agluFileInput) agluFileInput.value = '';
     if (r4020FileInput) r4020FileInput.value = '';
+    if (se2CsrfFileInput) se2CsrfFileInput.value = '';
+    if (agluCsrfFileInput) agluCsrfFileInput.value = '';
+    if (r4020CsrfFileInput) r4020CsrfFileInput.value = '';
 
     erpFileStatus.textContent = 'Nenhum arquivo selecionado';
     cityFileStatus.textContent = 'Nenhum arquivo selecionado';
@@ -799,12 +963,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sf1FileName) { sf1FileName.textContent = 'Nenhum arquivo selecionado'; sf1FileName.classList.remove('active'); }
     if (agluFileName) { agluFileName.textContent = 'Nenhum arquivo selecionado'; agluFileName.classList.remove('active'); }
     if (r4020FileName) { r4020FileName.textContent = 'Nenhum arquivo selecionado'; r4020FileName.classList.remove('active'); }
+    if (se2CsrfFileName) { se2CsrfFileName.textContent = 'Nenhum arquivo selecionado'; se2CsrfFileName.classList.remove('active'); }
+    if (agluCsrfFileName) { agluCsrfFileName.textContent = 'Nenhum arquivo selecionado'; agluCsrfFileName.classList.remove('active'); }
+    if (r4020CsrfFileName) { r4020CsrfFileName.textContent = 'Nenhum arquivo selecionado'; r4020CsrfFileName.classList.remove('active'); }
     dashboardGrid.style.display = 'none';
     const dashboardIssAudit = document.getElementById('dashboardIssAudit');
     if (dashboardIssAudit) dashboardIssAudit.style.display = 'none';
     const dashboardBalanceteAudit = document.getElementById('dashboardBalanceteAudit');
     if (dashboardBalanceteAudit) dashboardBalanceteAudit.style.display = 'none';
     resultsSection.style.display = 'none';
+    const irrfResults = document.getElementById('irrf-results');
+    if (irrfResults) irrfResults.style.display = 'none';
+    const csrfResultsSection = document.getElementById('csrf-results');
+    if (csrfResultsSection) csrfResultsSection.style.display = 'none';
     document.getElementById('uploadFormContainer').style.display = 'block';
     document.getElementById('chartContainer').style.display = 'none';
     tableBody.innerHTML = '';
@@ -820,6 +991,19 @@ document.addEventListener('DOMContentLoaded', () => {
       fileState[fg].sf1Text = 'Nenhum arquivo selecionado';
       fileState[fg].agluText = 'Nenhum arquivo selecionado';
       fileState[fg].r4020Text = 'Nenhum arquivo selecionado';
+      fileState[fg].sf1Active = false;
+      fileState[fg].agluActive = false;
+      fileState[fg].r4020Active = false;
+    } else if (fg === 'csrf') {
+      fileState[fg].se2File = null;
+      fileState[fg].agluCsrfFile = null;
+      fileState[fg].r4020CsrfFile = null;
+      fileState[fg].se2Text = 'Nenhum arquivo selecionado';
+      fileState[fg].agluCsrfText = 'Nenhum arquivo selecionado';
+      fileState[fg].r4020CsrfText = 'Nenhum arquivo selecionado';
+      fileState[fg].se2Active = false;
+      fileState[fg].agluCsrfActive = false;
+      fileState[fg].r4020CsrfActive = false;
     } else {
       fileState[fg].erpFile = null;
       fileState[fg].cityFile = null;
@@ -1218,6 +1402,12 @@ document.addEventListener('DOMContentLoaded', () => {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: {
+          animateScale: true,
+          animateRotate: true,
+          duration: 1500,
+          easing: 'easeOutQuart'
+        },
         layout: {
           padding: {
             top: 60,
@@ -1350,6 +1540,54 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  if (btnStartCsrfAudit) {
+    btnStartCsrfAudit.addEventListener('click', async () => {
+      if (!selectedSe2CsrfFile || !selectedAgluCsrfFile || !selectedR4020CsrfFile) {
+        alert('Por favor, selecione os 3 arquivos (SE2, Aglutinação e R-4020) para a conciliação de CSRF (PCC).');
+        return;
+      }
+      
+      const formData = new FormData();
+      formData.append('se2_file', selectedSe2CsrfFile);
+      formData.append('aglu_file', selectedAgluCsrfFile);
+      formData.append('r4020_file', selectedR4020CsrfFile);
+      
+      startSmoothProgress(
+        `Auditoria de CSRF (PCC)`,
+        [
+          'Lendo relatório base do ERP (SE2)...',
+          'Lendo espelho de Aglutinação e R-4020...',
+          'Cruzando informações (Nº do Documento, CNPJ)...',
+          'Apurando divergências de PIS, COFINS e CSLL...'
+        ]
+      );
+      
+      try {
+          const response = await fetch('/api/reconcile-csrf', { method: 'POST', body: formData });
+          const data = await response.json();
+          
+          await finishSmoothProgress();
+          
+          if (data.success) {
+              moduleState['csrf'] = moduleState['csrf'] || {};
+              moduleState['csrf'].reconciliationData = data.result;
+              moduleState['csrf'].batchData = null;
+              
+              document.getElementById('uploadFormContainer').style.display = 'none';
+              const csrfResultsSection = document.getElementById('csrf-results');
+              if (csrfResultsSection) csrfResultsSection.style.display = 'block';
+              
+              renderCsrfResults(data.result);
+          } else {
+              alert(data.error || 'Falha na auditoria de CSRF.');
+          }
+      } catch (err) {
+          if (activeProgressTimer) clearInterval(activeProgressTimer);
+          hideProgressModal();
+          alert('Erro ao processar CSRF: ' + (err.message || err));
+      }
+    });
+  }
 
   if (btnStartIrrfAudit) {
     btnStartIrrfAudit.addEventListener('click', async () => {
@@ -1401,70 +1639,262 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function renderIrrfResults(result) {
-    const detalhes = result.detalhes || [];
 
-    // Mapear dados IRRF para o formato items padrão
-    const irrfItems = detalhes.map(item => {
-      const sf1  = item.irrf_sf1  || 0;
-      const aglu = item.irrf_aglu || 0;
-      const r40  = item.irrf_r4020 || 0;
-      const maxV = Math.max(sf1, aglu, r40);
-      const minV = Math.min(sf1, aglu, r40);
-      const diff = maxV - minV;
 
-      let mappedStatus;
-      if (item.status === 'Conciliado')      mappedStatus = 'CONCILIADO';
-      else if (item.status === 'Ausente')    mappedStatus = 'SOMENTE_ERP';
-      else                                   mappedStatus = 'DIVERGENTE';
+  function renderCsrfResults(result) {
+    if (!result) return;
+    
+    if (result._csrf_mode) {
+      currentReconciliationData = result;
+    } else {
+      const detalhes = result.detalhes || [];
 
-      return {
-        status: mappedStatus,
-        numero_erp: item.numero || '-',
-        rps_erp: '',
-        numero_prefeitura: '-',
-        tomador: item.razao || '-',
-        cnpj: item.cnpj || '-',
-        valor_erp: sf1,
-        valor_prefeitura: aglu,
-        diferenca: diff,
-        irrf_sf1: sf1,
-        irrf_aglu: aglu,
-        irrf_r4020: r40,
-        diagnostico: item.status === 'Conciliado' ? 'Três bases conciliadas' :
-                     item.status === 'Ausente'    ? 'Ausente em um dos relatórios' :
-                                                   'Divergência entre os três relatórios'
+      // Mapear dados CSRF para o formato items padrão
+      const csrfItems = detalhes.map(item => {
+        const se2  = item.valor_erp  || 0;
+        const aglu = item.valor_aglu || 0;
+        const r40  = item.valor_reinf || 0;
+        const diff = Math.abs(item.diferenca) || 0;
+
+        let mappedStatus;
+        if (item.status === 'Conciliado')      mappedStatus = 'CONCILIADO';
+        else if (item.status === 'Ausente')    mappedStatus = 'SOMENTE_ERP';
+        else                                   mappedStatus = 'DIVERGENTE';
+
+        return {
+          status: mappedStatus,
+          numero_erp: item.numero || '-',
+          rps_erp: '',
+          numero_prefeitura: '-',
+          tomador: item.razao || '-',
+          cnpj: item.cnpj || '-',
+          valor_erp: se2,
+          valor_prefeitura: aglu,
+          diferenca: diff,
+          csrf_se2: se2,
+          csrf_aglu: aglu,
+          csrf_r4020: r40,
+          diagnostico: item.diagnostico || ''
+        };
+      });
+
+      const conciliados = csrfItems.filter(d => d.status === 'CONCILIADO').length;
+      const divergentes = csrfItems.filter(d => d.status === 'DIVERGENTE').length;
+      const ausentes    = csrfItems.filter(d => d.status === 'SOMENTE_ERP').length;
+      const total       = csrfItems.length;
+      const totalSe2    = csrfItems.reduce((s, d) => s + (d.csrf_se2 || 0), 0);
+      const taxa        = total > 0 ? ((conciliados / total) * 100).toFixed(1) : '0.0';
+
+      currentReconciliationData = {
+        items: csrfItems,
+        _csrf_mode: true,
+        resumo: {
+          total_erp_qtd: total,
+          total_prefeitura_qtd: total,
+          total_erp_valor: totalSe2,
+          conciliados_qtd: conciliados,
+          conciliados_valor: csrfItems.filter(d => d.status === 'CONCILIADO').reduce((s, d) => s + (d.csrf_se2 || 0), 0),
+          divergentes_qtd: divergentes + ausentes,
+          divergentes_valor: csrfItems.filter(d => d.status !== 'CONCILIADO').reduce((s, d) => s + Math.max(d.csrf_se2||0, d.csrf_aglu||0, d.csrf_r4020||0), 0),
+          taxa_assertividade: taxa,
+          ausentes_qtd: ausentes,
+          divergentes_reais_qtd: divergentes
+        }
       };
+    }
+    
+    const resumo = currentReconciliationData.resumo;
+    const csrfItems = currentReconciliationData.items;
+
+    // Armazenar no formato padrão com flag de modo CSRF
+    // Adaptar tabs: renomear 'Apenas ERP' -> 'Ausentes' e ocultar 'Apenas Prefeitura'
+    const tabErpOnly  = document.querySelector('.tab-btn[data-tab="erp_only"]');
+    const tabCityOnly = document.querySelector('.tab-btn[data-tab="city_only"]');
+    if (tabErpOnly)  tabErpOnly.innerHTML   = `⚠️ Ausentes (<span id="countErpOnly">${resumo.ausentes_qtd}</span>)`;
+    if (tabCityOnly) tabCityOnly.style.display = 'none';
+
+    // Adaptar cabeçalhos da tabela para o contexto CSRF
+    const thead = document.querySelector('#resultsSection thead tr');
+    if (thead) {
+      thead.innerHTML = `
+        <th>Status</th>
+        <th>Documento</th>
+        <th>CNPJ</th>
+        <th>Razão Social</th>
+        <th>PCC ERP (R$)</th>
+        <th>PCC Aglu. (R$)</th>
+        <th>R-4020 (R$)</th>
+        <th>Diferença (R$)</th>
+        <th>Diagnóstico</th>
+      `;
+    }
+
+    // Preencher cards de resumo do dashboardGrid
+    const elTotal         = document.getElementById('statTotalAudited');
+    const elTotalCount    = document.getElementById('statTotalCount');
+    const elMatchedVal    = document.getElementById('statMatchedVal');
+    const elMatchedCount  = document.getElementById('statMatchedCount');
+    const elDivVal        = document.getElementById('statDivergentVal');
+    const elDivCount      = document.getElementById('statDivergentCount');
+    const elAccuracy      = document.getElementById('statAccuracy');
+    const elCountAll      = document.getElementById('countAll');
+    const elCountMatched  = document.getElementById('countMatched');
+    const elCountDivergent = document.getElementById('countDivergent');
+    const elCountErpOnly  = document.getElementById('countErpOnly');
+
+    if (elTotal)          elTotal.textContent        = formatCurrency(resumo.total_erp_valor);
+    if (elTotalCount)     elTotalCount.textContent    = `${resumo.total_erp_qtd} documentos analisados (3 relatórios cruzados)`;
+    if (elMatchedVal)     elMatchedVal.textContent    = `${resumo.conciliados_qtd}`;
+    if (elMatchedCount)   elMatchedCount.textContent  = 'Sem divergências (SE2 = Aglu. = R-4020)';
+    if (elDivVal)         elDivVal.textContent        = `${resumo.divergentes_qtd}`;
+    if (elDivCount)       elDivCount.textContent      = `${resumo.ausentes_qtd} ausentes + ${resumo.divergentes_reais_qtd} com divergência`;
+    if (elAccuracy)       elAccuracy.textContent      = `${resumo.taxa_assertividade}%`;
+    if (elCountAll)       elCountAll.textContent      = resumo.total_erp_qtd;
+    if (elCountMatched)   elCountMatched.textContent  = resumo.conciliados_qtd;
+    if (elCountDivergent) elCountDivergent.textContent = resumo.divergentes_reais_qtd;
+    if (elCountErpOnly)   elCountErpOnly.textContent  = resumo.ausentes_qtd;
+
+    // Ocultar painéis exclusivos de outros módulos
+    const dashboardIssAudit      = document.getElementById('dashboardIssAudit');
+    const dashboardBalanceteAudit = document.getElementById('dashboardBalanceteAudit');
+    if (dashboardIssAudit)       dashboardIssAudit.style.display       = 'none';
+    if (dashboardBalanceteAudit) dashboardBalanceteAudit.style.display  = 'none';
+
+    // Exibir a UI padrão (igual aos outros módulos)
+    dashboardGrid.style.display = 'grid';
+    document.getElementById('uploadFormContainer').style.display = 'none';
+    document.getElementById('chartContainer').style.display = 'flex';
+    resultsSection.style.display = 'block';
+
+    // Gerar gráfico de rosca
+    renderChart(csrfItems);
+
+    // Renderizar tabela CSRF
+    filterAndRenderCsrfTable();
+  }
+
+  // Tabela no modo CSRF
+  function filterAndRenderCsrfTable() {
+    if (!currentReconciliationData || !currentReconciliationData._csrf_mode) return;
+
+    const searchTerm = (searchInput.value || '').toLowerCase().trim();
+    tableBody.innerHTML = '';
+
+    const filtered = currentReconciliationData.items.filter(item => {
+      const matchesTab =
+        (activeTab === 'all') ||
+        (activeTab === 'matched'   && item.status === 'CONCILIADO') ||
+        (activeTab === 'divergent' && item.status === 'DIVERGENTE') ||
+        (activeTab === 'erp_only'  && item.status === 'SOMENTE_ERP');
+
+      const itemStr = `${item.numero_erp} ${item.cnpj} ${item.tomador}`.toLowerCase();
+      return matchesTab && (!searchTerm || itemStr.includes(searchTerm));
     });
 
-    const conciliados = detalhes.filter(d => d.status === 'Conciliado').length;
-    const divergentes = detalhes.filter(d => d.status === 'Divergente').length;
-    const ausentes    = detalhes.filter(d => d.status === 'Ausente').length;
-    const total       = detalhes.length;
-    const totalSf1    = detalhes.reduce((s, d) => s + (d.irrf_sf1 || 0), 0);
-    const taxa        = total > 0 ? ((conciliados / total) * 100).toFixed(1) : '0.0';
-
-    // Armazenar no formato padrão com flag de modo IRRF
-    currentReconciliationData = {
-      items: irrfItems,
-      _irrf_mode: true,
-      resumo: {
-        total_erp_qtd: total,
-        total_prefeitura_qtd: total,
-        total_erp_valor: totalSf1,
-        conciliados_qtd: conciliados,
-        conciliados_valor: detalhes.filter(d => d.status === 'Conciliado').reduce((s, d) => s + (d.irrf_sf1 || 0), 0),
-        divergentes_qtd: divergentes + ausentes,
-        divergentes_valor: detalhes.filter(d => d.status !== 'Conciliado').reduce((s, d) => s + Math.max(d.irrf_sf1||0, d.irrf_aglu||0, d.irrf_r4020||0), 0),
-        taxa_assertividade: taxa
+    filtered.forEach(item => {
+      const tr = document.createElement('tr');
+      let statusBadge = '';
+      if (item.status === 'CONCILIADO') {
+        statusBadge = '<span class="status-badge status-conciliado"><i class="fas fa-check-circle"></i> Conciliado</span>';
+      } else if (item.status === 'DIVERGENTE') {
+        statusBadge = '<span class="status-badge status-divergente"><i class="fas fa-exclamation-triangle"></i> Divergente</span>';
+      } else if (item.status === 'SOMENTE_ERP') {
+        statusBadge = '<span class="status-badge status-somente-erp"><i class="fas fa-file-invoice"></i> Ausente</span>';
+      } else {
+        statusBadge = `<span class="status-badge" style="background-color: var(--border-color);">${item.status}</span>`;
       }
-    };
-    moduleState['irrf'].reconciliationData = result;
+
+      tr.innerHTML = `
+        <td>${statusBadge}</td>
+        <td><strong>${item.numero_erp || item.rps_erp || '-'}</strong></td>
+        <td>${item.cnpj || '-'}</td>
+        <td>${item.tomador || '-'}</td>
+        <td>${formatCurrency(item.csrf_se2 || 0)}</td>
+        <td>${formatCurrency(item.csrf_aglu || 0)}</td>
+        <td>${formatCurrency(item.csrf_r4020 || 0)}</td>
+        <td style="color: ${item.diferenca > 0.04 ? 'var(--status-danger-text)' : 'var(--text-muted)'}">
+          ${formatCurrency(item.diferenca || 0)}
+        </td>
+        <td><small style="color: var(--text-muted);">${item.diagnostico || '-'}</small></td>
+      `;
+
+      tableBody.appendChild(tr);
+    });
+  }
+
+  function renderIrrfResults(result) {
+    if (!result) return;
+    
+    if (result._irrf_mode) {
+      currentReconciliationData = result;
+    } else {
+      const detalhes = result.detalhes || [];
+
+      // Mapear dados IRRF para o formato items padrão
+      const irrfItems = detalhes.map(item => {
+        const sf1  = item.irrf_sf1  || 0;
+        const aglu = item.irrf_aglu || 0;
+        const r40  = item.irrf_r4020 || 0;
+        const maxV = Math.max(sf1, aglu, r40);
+        const minV = Math.min(sf1, aglu, r40);
+        const diff = maxV - minV;
+
+        let mappedStatus;
+        if (item.status === 'Conciliado')      mappedStatus = 'CONCILIADO';
+        else if (item.status === 'Ausente')    mappedStatus = 'SOMENTE_ERP';
+        else                                   mappedStatus = 'DIVERGENTE';
+
+        return {
+          status: mappedStatus,
+          numero_erp: item.numero || '-',
+          rps_erp: '',
+          numero_prefeitura: '-',
+          tomador: item.razao || '-',
+          cnpj: item.cnpj || '-',
+          valor_erp: sf1,
+          valor_prefeitura: aglu,
+          diferenca: diff,
+          irrf_sf1: sf1,
+          irrf_aglu: aglu,
+          irrf_r4020: r40,
+          diagnostico: item.status === 'Conciliado' ? 'Três bases conciliadas' :
+                       item.status === 'Ausente'    ? 'Ausente em um dos relatórios' :
+                                                     'Divergência entre os três relatórios'
+        };
+      });
+
+      const conciliados = irrfItems.filter(d => d.status === 'CONCILIADO').length;
+      const divergentes = irrfItems.filter(d => d.status === 'DIVERGENTE').length;
+      const ausentes    = irrfItems.filter(d => d.status === 'SOMENTE_ERP').length;
+      const total       = irrfItems.length;
+      const totalSf1    = irrfItems.reduce((s, d) => s + (d.irrf_sf1 || 0), 0);
+      const taxa        = total > 0 ? ((conciliados / total) * 100).toFixed(1) : '0.0';
+
+      currentReconciliationData = {
+        items: irrfItems,
+        _irrf_mode: true,
+        resumo: {
+          total_erp_qtd: total,
+          total_prefeitura_qtd: total,
+          total_erp_valor: totalSf1,
+          conciliados_qtd: conciliados,
+          conciliados_valor: irrfItems.filter(d => d.status === 'CONCILIADO').reduce((s, d) => s + (d.irrf_sf1 || 0), 0),
+          divergentes_qtd: divergentes + ausentes,
+          divergentes_valor: irrfItems.filter(d => d.status !== 'CONCILIADO').reduce((s, d) => s + Math.max(d.irrf_sf1||0, d.irrf_aglu||0, d.irrf_r4020||0), 0),
+          taxa_assertividade: taxa,
+          ausentes_qtd: ausentes,
+          divergentes_reais_qtd: divergentes
+        }
+      };
+    }
+    
+    const resumo = currentReconciliationData.resumo;
+    const irrfItems = currentReconciliationData.items;
 
     // Adaptar tabs: renomear 'Apenas ERP' -> 'Ausentes' e ocultar 'Apenas Prefeitura'
     const tabErpOnly  = document.querySelector('.tab-btn[data-tab="erp_only"]');
     const tabCityOnly = document.querySelector('.tab-btn[data-tab="city_only"]');
-    if (tabErpOnly)  tabErpOnly.innerHTML   = `⚠️ Ausentes (<span id="countErpOnly">${ausentes}</span>)`;
+    if (tabErpOnly)  tabErpOnly.innerHTML   = `⚠️ Ausentes (<span id="countErpOnly">${resumo.ausentes_qtd}</span>)`;
     if (tabCityOnly) tabCityOnly.style.display = 'none';
 
     // Adaptar cabeçalhos da tabela para o contexto IRRF
@@ -1496,17 +1926,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const elCountDivergent = document.getElementById('countDivergent');
     const elCountErpOnly  = document.getElementById('countErpOnly');
 
-    if (elTotal)          elTotal.textContent        = formatCurrency(totalSf1);
-    if (elTotalCount)     elTotalCount.textContent    = `${total} documentos analisados (3 relatórios cruzados)`;
-    if (elMatchedVal)     elMatchedVal.textContent    = `${conciliados}`;
+    if (elTotal)          elTotal.textContent        = formatCurrency(resumo.total_erp_valor);
+    if (elTotalCount)     elTotalCount.textContent    = `${resumo.total_erp_qtd} documentos analisados (3 relatórios cruzados)`;
+    if (elMatchedVal)     elMatchedVal.textContent    = `${resumo.conciliados_qtd}`;
     if (elMatchedCount)   elMatchedCount.textContent  = 'Sem divergências (SF1 = Aglu. = R-4020)';
-    if (elDivVal)         elDivVal.textContent        = `${divergentes + ausentes}`;
-    if (elDivCount)       elDivCount.textContent      = `${ausentes} ausentes + ${divergentes} com divergência`;
-    if (elAccuracy)       elAccuracy.textContent      = `${taxa}%`;
-    if (elCountAll)       elCountAll.textContent      = total;
-    if (elCountMatched)   elCountMatched.textContent  = conciliados;
-    if (elCountDivergent) elCountDivergent.textContent = divergentes;
-    if (elCountErpOnly)   elCountErpOnly.textContent  = ausentes;
+    if (elDivVal)         elDivVal.textContent        = `${resumo.divergentes_qtd}`;
+    if (elDivCount)       elDivCount.textContent      = `${resumo.ausentes_qtd} ausentes + ${resumo.divergentes_reais_qtd} com divergência`;
+    if (elAccuracy)       elAccuracy.textContent      = `${resumo.taxa_assertividade}%`;
+    if (elCountAll)       elCountAll.textContent      = resumo.total_erp_qtd;
+    if (elCountMatched)   elCountMatched.textContent  = resumo.conciliados_qtd;
+    if (elCountDivergent) elCountDivergent.textContent = resumo.divergentes_reais_qtd;
+    if (elCountErpOnly)   elCountErpOnly.textContent  = resumo.ausentes_qtd;
 
     // Ocultar painéis exclusivos de outros módulos
     const dashboardIssAudit      = document.getElementById('dashboardIssAudit');

@@ -152,8 +152,52 @@ class IRRFReconciler:
                 'filial': clean_doc_num(row.get(filial_col)) if filial_col else ''
             })
 
-    def parse_aglutinacao(self, file_bytes):
+    def parse_aglutinacao(self, file_bytes, is_excel=False):
         try:
+            if is_excel:
+                try:
+                    df = pd.read_excel(file_bytes)
+                except Exception:
+                    file_bytes.seek(0)
+                    df = pd.read_csv(file_bytes)
+                
+                col_filial = None
+                col_numero = None
+                col_valor = None
+                
+                for col in df.columns:
+                    col_str = str(col).lower().strip()
+                    if 'filial' in col_str: col_filial = col
+                    elif 'numero' in col_str or 'título' in col_str or 'titulo' in col_str or 'documento' in col_str: col_numero = col
+                    elif 'valor' in col_str or 'irrf' in col_str: col_valor = col
+                
+                if not col_filial or not col_numero or not col_valor:
+                    print("Aviso: Colunas vitais ausentes no arquivo de Aglutinação.")
+                    return
+                
+                df[col_filial] = df[col_filial].ffill()
+                
+                for _, row in df.iterrows():
+                    filial_raw = str(row[col_filial]) if pd.notna(row[col_filial]) else ''
+                    numero_raw = str(row[col_numero]) if pd.notna(row[col_numero]) else ''
+                    
+                    if not filial_raw or not numero_raw: continue
+                    if 'tota' in filial_raw.lower() or not any(c.isdigit() for c in filial_raw) or not any(c.isdigit() for c in numero_raw):
+                        continue
+                    
+                    filial = filial_raw.split('.')[0].lstrip('0')
+                    numero = numero_raw.split('.')[0].lstrip('0')
+                    if not filial or not numero: continue
+                    
+                    valor = parse_currency(row[col_valor])
+                    
+                    self.aglu_data.append({
+                        'numero': numero,
+                        'filial': filial,
+                        'irrf_aglu': valor
+                    })
+                return
+
             with pdfplumber.open(file_bytes) as pdf:
                 pattern = r'^(\d+)\s+(\d+)\s+(\d+)\s+([A-Za-z]+)\s+([\d/]+)\s+([\d/]+)\s+([\d/]+)\s+(IRF|IRRF)\s+([\d.,]+)$'
                 for page in pdf.pages:
@@ -209,6 +253,11 @@ class IRRFReconciler:
         cnpj_col = find_col(df, ['cnpj', 'participante']) or find_col(df, ['cnpj']) or find_col(df, ['cpf'])
         razao_col = find_col(df, ['nome', 'benef']) or find_col(df, ['nome']) or find_col(df, ['raz']) or find_col(df, ['participante'])
         filial_col = find_col(df, ['filial'])
+        # Preenche valores vazios com o valor da linha superior (comum em relatórios do Protheus)
+        if filial_col: df[filial_col] = df[filial_col].ffill()
+        if cnpj_col: df[cnpj_col] = df[cnpj_col].ffill()
+        if num_col: df[num_col] = df[num_col].ffill()
+        if razao_col: df[razao_col] = df[razao_col].ffill()
         
         for _, row in df.iterrows():
             ir_val = parse_currency(row.get(ir_col)) if ir_col else Decimal('0.00')

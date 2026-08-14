@@ -45,6 +45,7 @@ from parsers.aracaju_parser import AracajuParser
 from parsers.balancete_parser import BalanceteParser
 from engine.reconciler import ReconciliationEngine
 from parsers.irrf_reconciler import IRRFReconciler
+from parsers.csrf_reconciler import CSRFReconciler
 
 PORT = 8000
 
@@ -135,6 +136,8 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_batch_upload_reconcile(mode="iss-tomados")
         elif self.path == "/api/reconcile-irrf":
             self.handle_irrf_reconcile()
+        elif self.path == "/api/reconcile-csrf":
+            self.handle_csrf_reconcile()
         else:
             self.send_error(404, "Endpoint não encontrado")
 
@@ -757,6 +760,7 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
             sf1_bytes = fields.get('sf1_file')
             aglu_bytes = fields.get('aglu_file')
             r4020_bytes = fields.get('r4020_file')
+            aglu_filename = fields.get('aglu_file_filename', '').decode('utf-8', errors='replace').lower() if isinstance(fields.get('aglu_file_filename'), bytes) else str(fields.get('aglu_file_filename', '')).lower()
 
             if not sf1_bytes or not aglu_bytes or not r4020_bytes:
                 self.send_json_response({"success": False, "error": "Todos os três arquivos de IRRF (SF1, Aglutinação e R-4020) devem ser anexados."})
@@ -770,7 +774,8 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
                 print(f"Erro ao processar SF1: {e}")
 
             try:
-                irrf_parser.parse_aglutinacao(io.BytesIO(aglu_bytes))
+                is_excel_aglu = aglu_filename.endswith(('.xlsx', '.xls', '.csv'))
+                irrf_parser.parse_aglutinacao(io.BytesIO(aglu_bytes), is_excel=is_excel_aglu)
             except Exception as e:
                 print(f"Erro ao processar Aglutinacao: {e}")
 
@@ -786,9 +791,69 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             self.send_json_response({"success": False, "error": f"Erro no processamento de IRRF: {str(e)}"})
 
+    def handle_csrf_reconcile(self):
+        try:
+            content_type = self.headers.get('content-type', '')
+            if 'multipart/form-data' not in content_type:
+                self.send_json_response({"success": False, "error": "Formato de envio inválido."})
+                return
+
+            boundary_str = None
+            for part in content_type.split(';'):
+                part = part.strip()
+                if part.startswith('boundary='):
+                    boundary_str = part.split('=', 1)[1].strip('"\'')
+
+            if not boundary_str:
+                self.send_json_response({"success": False, "error": "Boundary do formulário não encontrado."})
+                return
+
+            content_length = int(self.headers.get('content-length', 0))
+            body_bytes = self.rfile.read(content_length)
+
+            fields = parse_multipart_data(body_bytes, boundary_str.encode('utf-8'))
+
+            se2_bytes = fields.get('se2_file')
+            aglu_bytes = fields.get('aglu_file')
+            r4020_bytes = fields.get('r4020_file')
+            aglu_filename = fields.get('aglu_file_filename', '').decode('utf-8', errors='replace').lower() if isinstance(fields.get('aglu_file_filename'), bytes) else str(fields.get('aglu_file_filename', '')).lower()
+
+            if not se2_bytes or not aglu_bytes or not r4020_bytes:
+                self.send_json_response({"success": False, "error": "Todos os três arquivos de CSRF (SE2, Aglutinação e R-4020) devem ser anexados."})
+                return
+
+            csrf_parser = CSRFReconciler()
+            
+            try:
+                csrf_parser.parse_se2(io.BytesIO(se2_bytes))
+            except Exception as e:
+                print(f"Erro ao processar SE2: {e}")
+
+            try:
+                is_excel_aglu = aglu_filename.endswith(('.xlsx', '.xls', '.csv'))
+                csrf_parser.parse_aglutinacao(io.BytesIO(aglu_bytes), is_excel=is_excel_aglu)
+            except Exception as e:
+                print(f"Erro ao processar Aglutinacao CSRF: {e}")
+
+            try:
+                csrf_parser.parse_r4020(io.BytesIO(r4020_bytes))
+            except Exception as e:
+                print(f"Erro ao processar R-4020 CSRF: {e}")
+            
+            result = csrf_parser.reconcile()
+
+            self.send_json_response({"success": True, "result": result})
+
+        except Exception as e:
+            self.send_json_response({"success": False, "error": f"Erro no processamento de CSRF: {str(e)}"})
 
     def send_json_response(self, data: Dict[str, Any], status_code: int = 200):
-        body = json.dumps(data, ensure_ascii=False).encode('utf-8')
+        def custom_encoder(obj):
+            if type(obj).__name__ == 'Decimal':
+                return float(obj)
+            raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+        body = json.dumps(data, ensure_ascii=False, default=custom_encoder).encode('utf-8')
         self.send_response(status_code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
