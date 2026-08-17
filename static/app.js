@@ -1323,7 +1323,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       let startVal = Math.floor(currentPercentValue);
       let startTime = performance.now();
-      let duration = 300; // 300ms para ir de onde parou até 100%
+      let duration = 120; // 120ms para ir de onde parou até 100%
 
       function update(currentTime) {
         let elapsed = currentTime - startTime;
@@ -1339,7 +1339,7 @@ document.addEventListener('DOMContentLoaded', () => {
           setTimeout(() => {
             hideProgressModal();
             resolve();
-          }, 200);
+          }, 50);
         }
       }
       requestAnimationFrame(update);

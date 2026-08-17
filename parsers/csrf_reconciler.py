@@ -42,6 +42,8 @@ def parse_currency(val_str):
     except:
         return Decimal('0.00')
 
+import openpyxl
+
 class CSRFReconciler:
     def __init__(self):
         self.se2_data = []      # PCC from ERP
@@ -50,85 +52,154 @@ class CSRFReconciler:
 
     def parse_se2(self, file_bytes):
         try:
-            xl = pd.ExcelFile(file_bytes)
-            
+            wb = openpyxl.load_workbook(file_bytes, read_only=True, data_only=True)
+            sheet_names = wb.sheetnames
+
             coop_cnpjs = set()
             coop_cods = set()
-            if 'Cooperativas' in xl.sheet_names:
-                try:
+            if 'Cooperativas' in sheet_names:
+                ws_coop = wb['Cooperativas']
+                header = None
+                for row in ws_coop.iter_rows(values_only=True):
+                    if not row or all(v is None for v in row): continue
+                    if header is None:
+                        header = [str(v).strip() if v is not None else '' for v in row]
+                        cnpj_idx = header.index('CNPJ') if 'CNPJ' in header else -1
+                        forn_idx = header.index('Fornecedor') if 'Fornecedor' in header else -1
+                        continue
+                    if cnpj_idx != -1 and len(row) > cnpj_idx and row[cnpj_idx]:
+                        coop_cnpjs.add(re.sub(r'\D', '', str(row[cnpj_idx]).strip()))
+                    if forn_idx != -1 and len(row) > forn_idx and row[forn_idx]:
+                        coop_cods.add(str(row[forn_idx]).strip().lstrip('0'))
+
+            forn_dict = {}
+            if 'FORNECEDOR' in sheet_names:
+                ws_forn = wb['FORNECEDOR']
+                for row in ws_forn.iter_rows(values_only=True):
+                    if row and len(row) > 1:
+                        nome_forn = str(row[0]).strip() if row[0] is not None else ''
+                        cnpj_forn = str(row[1]).strip() if row[1] is not None else ''
+                        if nome_forn and cnpj_forn:
+                            forn_dict[nome_forn.upper()] = cnpj_forn
+
+            if 'SE2' in sheet_names:
+                ws_se2 = wb['SE2']
+                header_map = None
+                for row in ws_se2.iter_rows(values_only=True):
+                    if not row or all(v is None for v in row): continue
+                    if header_map is None:
+                        row_str = ' '.join(str(v).lower() for v in row if v is not None)
+                        if 'filial' in row_str and ('titulo' in row_str or 'título' in row_str or 'natureza' in row_str):
+                            header_map = {}
+                            for idx, val in enumerate(row):
+                                if val is not None:
+                                    k = str(val).strip()
+                                    header_map[k] = idx
+                            continue
+                        else:
+                            continue
+
+                    def get_val(col_name):
+                        idx = header_map.get(col_name, -1)
+                        return row[idx] if idx != -1 and len(row) > idx and row[idx] is not None else None
+
+                    filial = clean_filial(get_val('Filial'))
+                    if not filial: continue
+
+                    numero = clean_doc_num(get_val('No. Titulo'))
+                    forn_cod = str(get_val('Fornecedor') or '').strip().lstrip('0')
+                    razao = str(get_val('Nome Fornece') or '').strip()
+                    cnpj = str(get_val('CNPJ Fornec') or '').strip()
+
+                    if (not cnpj or cnpj == 'nan' or cnpj == '.   .   /    -') and razao.upper() in forn_dict:
+                        cnpj = forn_dict[razao.upper()]
+
+                    cnpj_clean = re.sub(r'\D', '', cnpj)
+                    pis = parse_currency(get_val('PIS/PASEP') or 0)
+                    cofins = parse_currency(get_val('COFINS') or 0)
+                    csll = parse_currency(get_val('CSLL') or 0)
+
+                    if pis <= 0 and cofins <= 0 and csll <= 0:
+                        continue
+
+                    is_coop = (cnpj_clean in coop_cnpjs and cnpj_clean) or (forn_cod in coop_cods and forn_cod) or ('COOP' in razao.upper())
+
+                    self.se2_data.append({
+                        'filial': filial,
+                        'numero': numero,
+                        'cnpj': cnpj,
+                        'razao': razao,
+                        'is_coop': 'SIM' if is_coop else 'NÃO',
+                        'pis': pis,
+                        'cofins': cofins,
+                        'csll': csll,
+                        'pcc': pis + cofins + csll if not is_coop else Decimal('0.00')
+                    })
+
+            wb.close()
+        except Exception as e:
+            print("Notice: Error in openpyxl streaming parser, using pandas fallback:", e)
+            try:
+                file_bytes.seek(0)
+                xl = pd.ExcelFile(file_bytes)
+                coop_cnpjs = set()
+                coop_cods = set()
+                if 'Cooperativas' in xl.sheet_names:
                     df_coop = pd.read_excel(xl, sheet_name='Cooperativas')
                     df_coop.columns = [str(c).strip() for c in df_coop.columns]
                     if 'CNPJ' in df_coop.columns:
                         coop_cnpjs = set(df_coop['CNPJ'].dropna().astype(str).str.strip().str.replace(r'\D', '', regex=True))
                     if 'Fornecedor' in df_coop.columns:
                         coop_cods = set(df_coop['Fornecedor'].dropna().astype(str).str.strip().str.lstrip('0'))
-                except Exception as e:
-                    print("Aviso: Não conseguiu ler a aba Cooperativas.", e)
 
-            forn_dict = {}
-            if 'FORNECEDOR' in xl.sheet_names:
-                try:
+                forn_dict = {}
+                if 'FORNECEDOR' in xl.sheet_names:
                     df_forn = pd.read_excel(xl, sheet_name='FORNECEDOR')
                     for _, row in df_forn.iterrows():
                         nome_forn = str(row.iloc[0]).strip() if len(row) > 0 and pd.notna(row.iloc[0]) else ''
                         cnpj_forn = str(row.iloc[1]).strip() if len(row) > 1 and pd.notna(row.iloc[1]) else ''
                         if nome_forn and cnpj_forn:
                             forn_dict[nome_forn.upper()] = cnpj_forn
-                except Exception as e:
-                    print("Aviso: Não conseguiu ler a aba FORNECEDOR.", e)
 
-            # Detecção dinâmica da linha do cabeçalho na aba SE2 (busca por 'filial' e 'titulo'/'natureza')
-            header_idx = 1
-            try:
+                header_idx = 1
                 df_temp = pd.read_excel(xl, sheet_name='SE2', header=None, nrows=10)
                 for i, row in df_temp.iterrows():
                     row_str = ' '.join(str(v).lower() for v in row.values if pd.notna(v))
                     if 'filial' in row_str and ('titulo' in row_str or 'título' in row_str or 'natureza' in row_str):
                         header_idx = i
                         break
-            except Exception as e:
-                print("Aviso na detecção dinâmica do cabeçalho SE2:", e)
 
-            df_se2 = pd.read_excel(xl, sheet_name='SE2', header=header_idx)
-            df_se2.columns = [str(c).strip() for c in df_se2.columns]
+                df_se2 = pd.read_excel(xl, sheet_name='SE2', header=header_idx)
+                df_se2.columns = [str(c).strip() for c in df_se2.columns]
 
-            for _, row in df_se2.iterrows():
-                filial = clean_filial(row.get('Filial'))
-                if not filial: continue
-                
-                numero = clean_doc_num(row.get('No. Titulo'))
-                forn_cod = str(row.get('Fornecedor', '')).strip().lstrip('0')
-                
-                razao = str(row.get('Nome Fornece', '')).strip() if pd.notna(row.get('Nome Fornece')) else ''
-                cnpj = str(row.get('CNPJ Fornec', '')).strip() if pd.notna(row.get('CNPJ Fornec')) else ''
-                
-                if (not cnpj or cnpj == 'nan' or cnpj == '.   .   /    -') and razao.upper() in forn_dict:
-                    cnpj = forn_dict[razao.upper()]
-                
-                cnpj_clean = re.sub(r'\D', '', cnpj)
-                
-                pis = parse_currency(row.get('PIS/PASEP', 0))
-                cofins = parse_currency(row.get('COFINS', 0))
-                csll = parse_currency(row.get('CSLL', 0))
-                
-                if pis <= 0 and cofins <= 0 and csll <= 0:
-                    continue
-                
-                is_coop = (cnpj_clean in coop_cnpjs and cnpj_clean) or (forn_cod in coop_cods and forn_cod) or ('COOP' in razao.upper())
-                
-                self.se2_data.append({
-                    'filial': filial,
-                    'numero': numero,
-                    'cnpj': cnpj,
-                    'razao': razao,
-                    'is_coop': 'SIM' if is_coop else 'NÃO',
-                    'pis': pis,
-                    'cofins': cofins,
-                    'csll': csll,
-                    'pcc': pis + cofins + csll if not is_coop else Decimal('0.00')
-                })
-        except Exception as e:
-            print("Notice: Could not parse SE2:", e)
+                for _, row in df_se2.iterrows():
+                    filial = clean_filial(row.get('Filial'))
+                    if not filial: continue
+                    numero = clean_doc_num(row.get('No. Titulo'))
+                    forn_cod = str(row.get('Fornecedor', '')).strip().lstrip('0')
+                    razao = str(row.get('Nome Fornece', '')).strip() if pd.notna(row.get('Nome Fornece')) else ''
+                    cnpj = str(row.get('CNPJ Fornec', '')).strip() if pd.notna(row.get('CNPJ Fornec')) else ''
+                    if (not cnpj or cnpj == 'nan' or cnpj == '.   .   /    -') and razao.upper() in forn_dict:
+                        cnpj = forn_dict[razao.upper()]
+                    cnpj_clean = re.sub(r'\D', '', cnpj)
+                    pis = parse_currency(row.get('PIS/PASEP', 0))
+                    cofins = parse_currency(row.get('COFINS', 0))
+                    csll = parse_currency(row.get('CSLL', 0))
+                    if pis <= 0 and cofins <= 0 and csll <= 0: continue
+                    is_coop = (cnpj_clean in coop_cnpjs and cnpj_clean) or (forn_cod in coop_cods and forn_cod) or ('COOP' in razao.upper())
+                    self.se2_data.append({
+                        'filial': filial,
+                        'numero': numero,
+                        'cnpj': cnpj,
+                        'razao': razao,
+                        'is_coop': 'SIM' if is_coop else 'NÃO',
+                        'pis': pis,
+                        'cofins': cofins,
+                        'csll': csll,
+                        'pcc': pis + cofins + csll if not is_coop else Decimal('0.00')
+                    })
+            except Exception as e2:
+                print("Notice: Could not parse SE2 in fallback either:", e2)
 
     def parse_aglutinacao(self, file_bytes, is_excel=False):
         try:
