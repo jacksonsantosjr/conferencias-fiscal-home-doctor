@@ -364,8 +364,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const tabErpOnlyRestore = document.querySelector('.tab-btn[data-tab="erp_only"]');
         const tabCityOnlyRestore = document.querySelector('.tab-btn[data-tab="city_only"]');
+        const tabReinfRestore = document.querySelector('.tab-btn[data-tab="reinf"]');
         if (tabErpOnlyRestore) tabErpOnlyRestore.innerHTML = `⚠️ Apenas ERP (<span id="countErpOnly">0</span>)`;
         if (tabCityOnlyRestore) tabCityOnlyRestore.style.display = '';
+        if (tabReinfRestore) tabReinfRestore.style.display = 'none';
 
         const standardTableWrapper = document.getElementById('standardTableWrapper');
         const piscofinsResultsCards = document.getElementById('piscofinsResultsCards');
@@ -2254,8 +2256,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Adaptar tabs: renomear 'Apenas ERP' -> 'Ausentes' e ocultar 'Apenas Prefeitura'
     const tabErpOnly  = document.querySelector('.tab-btn[data-tab="erp_only"]');
     const tabCityOnly = document.querySelector('.tab-btn[data-tab="city_only"]');
+    const tabReinf    = document.querySelector('.tab-btn[data-tab="reinf"]');
     if (tabErpOnly)  tabErpOnly.innerHTML   = `⚠️ Ausentes (<span id="countErpOnly">${resumo.ausentes_qtd}</span>)`;
     if (tabCityOnly) tabCityOnly.style.display = 'none';
+    if (tabReinf) {
+      tabReinf.style.display = 'inline-block';
+      const reinfCount = csrfItems.filter(item => item.status === 'CONCILIADO' && item.diferenca > 0).length;
+      tabReinf.innerHTML = `🎯 REINF (<span id="countReinf">${reinfCount}</span>)`;
+    }
 
     // Adaptar cabeçalhos da tabela para o contexto CSRF
     const thead = document.querySelector('#resultsSection thead tr');
@@ -2338,7 +2346,8 @@ document.addEventListener('DOMContentLoaded', () => {
         (activeTab === 'all') ||
         (activeTab === 'matched'   && item.status === 'CONCILIADO') ||
         (activeTab === 'divergent' && item.status === 'DIVERGENTE') ||
-        (activeTab === 'erp_only'  && item.status === 'SOMENTE_ERP');
+        (activeTab === 'erp_only'  && item.status === 'SOMENTE_ERP') ||
+        (activeTab === 'reinf'     && item.status === 'CONCILIADO' && item.diferenca > 0);
 
       const itemStr = `${item.numero_erp} ${item.cnpj} ${item.tomador}`.toLowerCase();
       return matchesTab && (!searchTerm || itemStr.includes(searchTerm));
@@ -2442,8 +2451,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Adaptar tabs: renomear 'Apenas ERP' -> 'Ausentes' e ocultar 'Apenas Prefeitura'
     const tabErpOnly  = document.querySelector('.tab-btn[data-tab="erp_only"]');
     const tabCityOnly = document.querySelector('.tab-btn[data-tab="city_only"]');
+    const tabReinf    = document.querySelector('.tab-btn[data-tab="reinf"]');
     if (tabErpOnly)  tabErpOnly.innerHTML   = `⚠️ Ausentes (<span id="countErpOnly">${resumo.ausentes_qtd}</span>)`;
     if (tabCityOnly) tabCityOnly.style.display = 'none';
+    if (tabReinf) {
+      tabReinf.style.display = 'inline-block';
+      const reinfCount = irrfItems.filter(item => item.status === 'CONCILIADO' && item.diferenca > 0).length;
+      tabReinf.innerHTML = `🎯 REINF (<span id="countReinf">${reinfCount}</span>)`;
+    }
 
     // Adaptar cabeçalhos da tabela para o contexto IRRF
     const thead = document.querySelector('#resultsSection thead tr');
@@ -2526,7 +2541,8 @@ document.addEventListener('DOMContentLoaded', () => {
         (activeTab === 'all') ||
         (activeTab === 'matched'   && item.status === 'CONCILIADO') ||
         (activeTab === 'divergent' && item.status === 'DIVERGENTE') ||
-        (activeTab === 'erp_only'  && item.status === 'SOMENTE_ERP');
+        (activeTab === 'erp_only'  && item.status === 'SOMENTE_ERP') ||
+        (activeTab === 'reinf'     && item.status === 'CONCILIADO' && item.diferenca > 0);
 
       const itemStr = `${item.numero_erp} ${item.cnpj} ${item.tomador}`.toLowerCase();
       return matchesTab && (!searchTerm || itemStr.includes(searchTerm));
