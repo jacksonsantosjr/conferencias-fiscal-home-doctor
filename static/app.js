@@ -2347,15 +2347,10 @@ document.addEventListener('DOMContentLoaded', () => {
     filtered.forEach(item => {
       const tr = document.createElement('tr');
       let statusBadge = '';
-      if (item.status === 'CONCILIADO') {
-        statusBadge = '<span class="status-badge status-conciliado"><i class="fas fa-check-circle"></i> Conciliado</span>';
-      } else if (item.status === 'DIVERGENTE') {
-        statusBadge = '<span class="status-badge status-divergente"><i class="fas fa-exclamation-triangle"></i> Divergente</span>';
-      } else if (item.status === 'SOMENTE_ERP') {
-        statusBadge = '<span class="status-badge status-somente-erp"><i class="fas fa-file-invoice"></i> Ausente</span>';
-      } else {
-        statusBadge = `<span class="status-badge" style="background-color: var(--border-color);">${item.status}</span>`;
-      }
+      if      (item.status === 'CONCILIADO') statusBadge = '<span class="badge badge-matched">🟢 Conciliado</span>';
+      else if (item.status === 'DIVERGENTE') statusBadge = '<span class="badge badge-divergent">🔴 Divergente</span>';
+      else if (item.status === 'SOMENTE_ERP') statusBadge = '<span class="badge badge-erp-only">⚠️ Ausente</span>';
+      else                                   statusBadge = `<span class="badge badge-city-only">${item.status}</span>`;
 
       tr.innerHTML = `
         <td>${statusBadge}</td>
