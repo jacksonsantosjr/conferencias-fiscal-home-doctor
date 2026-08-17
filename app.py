@@ -102,6 +102,12 @@ def parse_multipart_data(data: bytes, boundary: bytes) -> Dict[str, Any]:
 
 
 class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
+    def end_headers(self):
+        self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        self.send_header('Pragma', 'no-cache')
+        self.send_header('Expires', '0')
+        super().end_headers()
+
     def translate_path(self, path):
         if path == "/" or path == "/index.html":
             return os.path.join(CURRENT_DIR, "static", "index.html")
