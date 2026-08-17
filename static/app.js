@@ -1865,10 +1865,10 @@ document.addEventListener('DOMContentLoaded', () => {
       startSmoothProgress(
         `Auditoria de IRRF`,
         [
-          'Lendo relatório base do ERP (SF1)...',
-          'Lendo espelho de Aglutinação e R-4020...',
-          'Cruzando informações (Nº do Documento, CNPJ)...',
-          'Apurando divergências de Retenção de IRRF...'
+          'Lendo base volumosa de Fornecedores e Títulos (SF1)...',
+          'Processando cruzamento com espelhos de Aglutinação e R-4020...',
+          'Analisando notas fiscais e identificando inconsistências...',
+          'Consolidando divergências de Retenção de IRRF...'
         ]
       );
 

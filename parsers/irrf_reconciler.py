@@ -4,6 +4,7 @@ import re
 from decimal import Decimal
 import io
 import math
+import openpyxl
 
 def clean_doc_num(num):
     if pd.isna(num): return ""
@@ -43,52 +44,47 @@ class IRRFReconciler:
         self.r4020_data = []
 
     def parse_sf1(self, file_bytes):
-        # Read the 'Fornecedor' sheet first to map Codigo -> CNPJ/Razao
-        forn_map = {}
+        file_bytes.seek(0)
         try:
             xl = pd.ExcelFile(file_bytes)
-            forn_sheet = None
-            for sname in xl.sheet_names:
-                if 'fornec' in sname.lower():
-                    forn_sheet = sname
-                    break
-            
-            if forn_sheet:
-                df_forn = pd.read_excel(file_bytes, sheet_name=forn_sheet, header=0)
-                col_cod = df_forn.columns[0]
-                col_cnpj = find_col(df_forn, ['cnpj']) or df_forn.columns[min(3, len(df_forn.columns)-1)]
-                col_razao = find_col(df_forn, ['raz']) or df_forn.columns[min(4, len(df_forn.columns)-1)]
-                
-                for _, row in df_forn.iterrows():
-                    codigo = str(row[col_cod]).strip().lstrip('0') if not pd.isna(row[col_cod]) else ''
-                    cnpj = clean_cnpj(row[col_cnpj])
-                    razao = str(row[col_razao]).strip() if not pd.isna(row[col_razao]) else ''
-                    if codigo:
-                        forn_map[codigo] = {'cnpj': cnpj, 'razao': razao}
         except Exception as e:
-            print("Notice: Could not read Fornecedor sheet:", e)
-
-        file_bytes.seek(0)
+            print(f"Notice: Could not load ExcelFile for SF1. Error: {e}")
+            return
+            
+        sheet_names = xl.sheet_names
+        forn_sheet = next((s for s in sheet_names if 'fornec' in s.lower()), None)
+        sf1_sheet = next((s for s in sheet_names if 'sf1' in s.lower()), sheet_names[0])
         
-        # Read SF1 sheet with fallback
+        forn_map = {}
+        if forn_sheet:
+            try:
+                def col_filter(col_name):
+                    c = str(col_name).lower()
+                    return any(k in c for k in ['cód', 'cod', 'cnpj', 'raz', 'nome', 'loja'])
+                
+                df_forn = pd.read_excel(xl, sheet_name=forn_sheet, usecols=col_filter)
+                if not df_forn.empty:
+                    col_cod = df_forn.columns[0]
+                    col_cnpj = find_col(df_forn, ['cnpj']) or (df_forn.columns[1] if len(df_forn.columns) > 1 else None)
+                    col_razao = find_col(df_forn, ['raz']) or (df_forn.columns[2] if len(df_forn.columns) > 2 else None)
+                    
+                    for _, row in df_forn.iterrows():
+                        if col_cod is None or pd.isna(row.get(col_cod)): continue
+                        codigo = str(row[col_cod]).strip().lstrip('0')
+                        cnpj = clean_cnpj(row[col_cnpj]) if col_cnpj else ''
+                        razao = str(row[col_razao]).strip() if col_razao and not pd.isna(row[col_razao]) else ''
+                        if codigo:
+                            forn_map[codigo] = {'cnpj': cnpj, 'razao': razao}
+            except Exception as e:
+                print(f"Notice: Could not read Fornecedor sheet: {e}")
+
         df = None
         try:
-            xl = pd.ExcelFile(file_bytes)
-            sf1_sheet = None
-            for sname in xl.sheet_names:
-                if 'sf1' in sname.lower():
-                    sf1_sheet = sname
-                    break
-            
-            if sf1_sheet:
-                df = pd.read_excel(file_bytes, sheet_name=sf1_sheet, header=None)
-            else:
-                df = pd.read_excel(file_bytes, sheet_name=0, header=None)
-                
+            df = pd.read_excel(xl, sheet_name=sf1_sheet, header=None)
             header_idx = -1
             for i, row in df.head(10).iterrows():
                 row_str = ' '.join([str(v).lower() for v in row if not pd.isna(v)])
-                if 'filial' in row_str and 'numero' in row_str:
+                if 'filial' in row_str and ('numero' in row_str or 'doc' in row_str or 'nº' in row_str):
                     header_idx = i
                     break
             
@@ -96,17 +92,14 @@ class IRRFReconciler:
                 df.columns = df.iloc[header_idx]
                 df = df.iloc[header_idx+1:].reset_index(drop=True)
             else:
-                file_bytes.seek(0)
-                df = pd.read_excel(file_bytes, sheet_name=sf1_sheet or 0)
-                
-        except Exception:
-            file_bytes.seek(0)
-            df = pd.read_excel(file_bytes, sheet_name=0)
-        
+                df = pd.read_excel(xl, sheet_name=sf1_sheet)
+        except Exception as e:
+            print(f"Notice: Could not read SF1 sheet: {e}")
+            return
+            
         if df is None or df.empty:
             return
 
-        # Encontrar colunas baseadas em palavras chaves para ser a prova de falhas de codificacao/formatacao
         irrf_col = find_col(df, ['irrf', 'ret']) or find_col(df, ['irrf']) or find_col(df, ['ret'])
         num_col = find_col(df, ['numero']) or find_col(df, ['num']) or find_col(df, ['doc']) or find_col(df, ['nº'])
         filial_col = find_col(df, ['filial'])
@@ -137,11 +130,11 @@ class IRRFReconciler:
                 razao = forn_map[forn_code]['razao']
             else:
                 cnpj_col_local = find_col(df, ['cnpj'])
-                if cnpj_col_local and not pd.isna(row[cnpj_col_local]):
-                    cnpj = clean_cnpj(row[cnpj_col_local])
+                if cnpj_col_local and not pd.isna(row.get(cnpj_col_local)):
+                    cnpj = clean_cnpj(row.get(cnpj_col_local))
                 razao_col_local = find_col(df, ['raz']) or find_col(df, ['nome'])
-                if razao_col_local and not pd.isna(row[razao_col_local]):
-                    razao = str(row[razao_col_local]).strip()
+                if razao_col_local and not pd.isna(row.get(razao_col_local)):
+                    razao = str(row.get(razao_col_local)).strip()
 
             self.sf1_data.append({
                 'numero': num,
