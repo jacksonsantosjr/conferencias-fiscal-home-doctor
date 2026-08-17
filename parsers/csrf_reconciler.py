@@ -62,7 +62,19 @@ class CSRFReconciler:
                 except Exception as e:
                     print("Aviso: Não conseguiu ler a aba FORNECEDOR.", e)
 
-            df_se2 = pd.read_excel(xl, sheet_name='SE2', header=1)
+            # Detecção dinâmica da linha do cabeçalho na aba SE2 (busca por 'filial' e 'titulo'/'natureza')
+            header_idx = 1
+            try:
+                df_temp = pd.read_excel(xl, sheet_name='SE2', header=None, nrows=10)
+                for i, row in df_temp.iterrows():
+                    row_str = ' '.join(str(v).lower() for v in row.values if pd.notna(v))
+                    if 'filial' in row_str and ('titulo' in row_str or 'título' in row_str or 'natureza' in row_str):
+                        header_idx = i
+                        break
+            except Exception as e:
+                print("Aviso na detecção dinâmica do cabeçalho SE2:", e)
+
+            df_se2 = pd.read_excel(xl, sheet_name='SE2', header=header_idx)
             df_se2.columns = [str(c).strip() for c in df_se2.columns]
 
             for _, row in df_se2.iterrows():
@@ -124,15 +136,16 @@ class CSRFReconciler:
                 col_valor = None
                 
                 for col in df.columns:
-                    col_str = str(col).lower().strip()
-                    if 'filial' in col_str: col_filial = col
-                    elif 'numero' in col_str or 'título' in col_str or 'titulo' in col_str or 'documento' in col_str: col_numero = col
-                    elif 'natureza' in col_str: col_natureza = col
-                    elif 'valor' in col_str: col_valor = col
+                    col_clean = str(col).lower().replace('ú', 'u').replace('é', 'e').replace('í', 'i').replace('ó', 'o').replace('ã', 'a').replace('ç', 'c').replace('á', 'a').strip()
+                    if 'filial' in col_clean: col_filial = col
+                    elif 'numero' in col_clean or 'titulo' in col_clean or 'documento' in col_clean or 'tit' in col_clean: col_numero = col
+                    elif 'natureza' in col_clean: col_natureza = col
+                    elif 'valor' in col_clean or 'vlr' in col_clean: col_valor = col
                 
                 if not col_natureza:
                     for col in df.columns:
-                        if 'tipo' in str(col).lower().strip():
+                        col_clean = str(col).lower().replace('ú', 'u').replace('é', 'e').replace('í', 'i').replace('ó', 'o').replace('ã', 'a').replace('ç', 'c').replace('á', 'a').strip()
+                        if 'tipo' in col_clean:
                             col_natureza = col
                             break
                 
