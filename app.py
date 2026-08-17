@@ -48,7 +48,7 @@ from parsers.irrf_reconciler import IRRFReconciler
 from parsers.csrf_reconciler import CSRFReconciler
 from parsers.piscofins_reconciler import PisCofinsReconciler
 
-PORT = 8000
+PORT = int(os.environ.get("PORT", 8000))
 
 ALL_CITIES_CONFIG = [
     {"name": "Aracaju", "folder": "Aracaju", "erp": "Relatório de Notas Fiscais Emitidas Aracaju.pdf", "city_file": "NFS-e Emitidas - BAHIA HOME CARE SERVICOS MEDICOS DOMICILIARES LTDA - 07.766.008_0005-36_Aracaju.csv", "parser": AracajuParser},
