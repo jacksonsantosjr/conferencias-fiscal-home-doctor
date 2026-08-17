@@ -52,13 +52,12 @@ class CSRFReconciler:
             forn_dict = {}
             if 'FORNECEDOR' in xl.sheet_names:
                 try:
-                    df_forn = pd.read_excel(xl, sheet_name='FORNECEDOR', header=None)
+                    df_forn = pd.read_excel(xl, sheet_name='FORNECEDOR')
                     for _, row in df_forn.iterrows():
-                        codigo = str(row.iloc[0]).strip().lstrip('0')
-                        razao_forn = str(row.iloc[1]).strip() if len(row) > 1 else ''
-                        cnpj_forn = str(row.iloc[4]).strip() if len(row) > 4 else ''
-                        if codigo:
-                            forn_dict[codigo] = (cnpj_forn, razao_forn)
+                        nome_forn = str(row.iloc[0]).strip() if len(row) > 0 and pd.notna(row.iloc[0]) else ''
+                        cnpj_forn = str(row.iloc[1]).strip() if len(row) > 1 and pd.notna(row.iloc[1]) else ''
+                        if nome_forn and cnpj_forn:
+                            forn_dict[nome_forn.upper()] = cnpj_forn
                 except Exception as e:
                     print("Aviso: Não conseguiu ler a aba FORNECEDOR.", e)
 
@@ -82,18 +81,13 @@ class CSRFReconciler:
                 if not filial: continue
                 
                 numero = clean_doc_num(row.get('No. Titulo'))
-                
-                # Simular PROCV buscando na aba FORNECEDOR pela coluna L (índice 11) ou 'Fornece'
-                fornece = str(row.get('Fornece', row.iloc[11] if len(row) > 11 else '')).strip().lstrip('0')
                 forn_cod = str(row.get('Fornecedor', '')).strip().lstrip('0')
                 
-                if fornece and fornece in forn_dict:
-                    cnpj, razao = forn_dict[fornece]
-                elif forn_cod and forn_cod in forn_dict:
-                    cnpj, razao = forn_dict[forn_cod]
-                else:
-                    cnpj = str(row.get('CNPJ Fornec', '')).strip()
-                    razao = str(row.get('Nome Fornece', '')).strip()
+                razao = str(row.get('Nome Fornece', '')).strip() if pd.notna(row.get('Nome Fornece')) else ''
+                cnpj = str(row.get('CNPJ Fornec', '')).strip() if pd.notna(row.get('CNPJ Fornec')) else ''
+                
+                if (not cnpj or cnpj == 'nan' or cnpj == '.   .   /    -') and razao.upper() in forn_dict:
+                    cnpj = forn_dict[razao.upper()]
                 
                 cnpj_clean = re.sub(r'\D', '', cnpj)
                 
@@ -275,10 +269,20 @@ class CSRFReconciler:
             print(f"DEBUG R4020 COLUMNS: {list(df.columns)}")
 
             filial_col = find_col(['Filial', 'Estabelecimento'])
-            cnpj_col = find_col(['CNPJ Participante', 'CNPJ'])
+            cnpj_col = find_col(['CNPJ Participante', 'CNPJ Prestador', 'CNPJ Beneficiário', 'CNPJ Beneficiario'])
+            if not cnpj_col:
+                # Fallback que exclui coluna da filial
+                for c in df.columns:
+                    c_low = str(c).lower()
+                    if 'cnpj' in c_low and 'filial' not in c_low:
+                        cnpj_col = c
+                        break
+            if not cnpj_col:
+                cnpj_col = find_col(['CNPJ'])
+
             num_col = find_col(['Nº do Documento', 'Documento', 'Num', 'Nº', 'Nota'])
             val_col = find_col(['Valor Agregado'])
-            razao_col = find_col(['Nome', 'Razão', 'Razao'])
+            razao_col = find_col(['Nome Beneficiário', 'Nome Beneficiario', 'Beneficiário', 'Beneficiario', 'Razão', 'Razao', 'Nome'])
             tipo_col = find_col(['Tipo'])
             
             if not val_col:
