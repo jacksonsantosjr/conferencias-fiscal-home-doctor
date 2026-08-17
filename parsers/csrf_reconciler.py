@@ -4,12 +4,28 @@ import re
 from decimal import Decimal, InvalidOperation
 from typing import Dict, Any, List
 
+def clean_filial(val):
+    if pd.isna(val):
+        return ''
+    s = str(val).split('.')[0].strip()
+    s_digits = re.sub(r'\D', '', s)
+    if not s_digits:
+        return ''
+    s_clean = s_digits.lstrip('0')
+    if not s_clean:
+        return ''
+    if len(s_clean) >= 5:
+        empresa = s_clean[:4]
+        unidade = s_clean[4:].lstrip('0')
+        return f"{empresa}_{unidade}" if unidade else empresa
+    return s_clean
+
 def clean_doc_num(val):
     if pd.isna(val):
         return ''
-    if isinstance(val, float):
-        val = int(val)
-    return str(val).strip().lstrip('0')
+    s = str(val).split('.')[0].strip()
+    s_digits = re.sub(r'\D', '', s)
+    return s_digits.lstrip('0') if s_digits else s.lstrip('0')
 
 def parse_currency(val_str):
     if not isinstance(val_str, str):
@@ -77,7 +93,7 @@ class CSRFReconciler:
             df_se2.columns = [str(c).strip() for c in df_se2.columns]
 
             for _, row in df_se2.iterrows():
-                filial = clean_doc_num(row.get('Filial'))
+                filial = clean_filial(row.get('Filial'))
                 if not filial: continue
                 
                 numero = clean_doc_num(row.get('No. Titulo'))
@@ -157,8 +173,8 @@ class CSRFReconciler:
                     if 'tota' in filial_raw.lower() or not any(c.isdigit() for c in filial_raw) or not any(c.isdigit() for c in numero_raw):
                         continue
                     
-                    filial = filial_raw.split('.')[0].lstrip('0')
-                    numero = numero_raw.split('.')[0].lstrip('0')
+                    filial = clean_filial(filial_raw)
+                    numero = clean_doc_num(numero_raw)
                     if not filial or not numero: continue
                     
                     natureza_raw = str(row[col_natureza]).upper() if col_natureza and pd.notna(row[col_natureza]) else ''
@@ -190,8 +206,8 @@ class CSRFReconciler:
                         
                         match = re.match(pattern, line_str)
                         if match:
-                            filial = match.group(1).lstrip('0')
-                            numero = match.group(2).lstrip('0')
+                            filial = clean_filial(match.group(1))
+                            numero = clean_doc_num(match.group(2))
                             natureza_raw = match.group(8).upper()
                             
                             natureza = 'PCC'
@@ -214,8 +230,8 @@ class CSRFReconciler:
                                 digits_parts = [p for p in parts if p.isdigit()]
                                 # Exige ao menos filial e documento
                                 if len(digits_parts) >= 2:
-                                    filial = digits_parts[0].lstrip('0')
-                                    numero = digits_parts[2].lstrip('0') if len(digits_parts) >= 4 else digits_parts[1].lstrip('0')
+                                    filial = clean_filial(digits_parts[0])
+                                    numero = clean_doc_num(digits_parts[2]) if len(digits_parts) >= 4 else clean_doc_num(digits_parts[1])
                                     
                                     # Procura o último valor monetário na linha
                                     valor = Decimal('0.00')
@@ -311,7 +327,7 @@ class CSRFReconciler:
                     
                 cnpj = str(row.get(cnpj_col, '')).strip() if cnpj_col else ''
                 razao = str(row.get(razao_col, '')).strip() if razao_col else ''
-                filial = clean_doc_num(row.get(filial_col)) if filial_col else ''
+                filial = clean_filial(row.get(filial_col)) if filial_col else ''
                 numero = clean_doc_num(row.get(num_col)) if num_col else ''
                 
                 self.r4020_data.append({
@@ -329,11 +345,9 @@ class CSRFReconciler:
         for item in self.aglu_data + self.r4020_data:
             f = item.get('filial', '')
             if f:
-                todas_filiais_auxiliares.add(str(f).lstrip('0'))
+                todas_filiais_auxiliares.add(f)
         
-        valid_prefixes = set(f[:4] for f in todas_filiais_auxiliares if len(f) >= 4)
-        if not valid_prefixes:
-            valid_prefixes = set(f for f in todas_filiais_auxiliares if f)
+        valid_prefixes = set(f.split('_')[0] for f in todas_filiais_auxiliares if f)
 
         master = {}
         def get_or_create(filial, num):
@@ -358,20 +372,10 @@ class CSRFReconciler:
             return master[key]
 
         for item in self.se2_data:
-            f_norm = str(item.get('filial', '')).lstrip('0')
-            if valid_prefixes:
-                match_found = False
-                for p in valid_prefixes:
-                    if len(p) < 4:
-                        if f_norm == p:
-                            match_found = True
-                            break
-                    else:
-                        if f_norm.startswith(p):
-                            match_found = True
-                            break
-                if not match_found:
-                    continue
+            f_norm = str(item.get('filial', ''))
+            f_prefix = f_norm.split('_')[0] if f_norm else ''
+            if valid_prefixes and f_prefix not in valid_prefixes:
+                continue
             
             rec = get_or_create(item['filial'], item['numero'])
             if item.get('cnpj'): rec['cnpj'] = item['cnpj']
