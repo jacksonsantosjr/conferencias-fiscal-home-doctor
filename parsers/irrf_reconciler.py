@@ -85,19 +85,18 @@ class IRRFReconciler:
         cnpj_col_local = find_col(df, ['cnpj'])
         razao_col_local = find_col(df, ['raz']) or find_col(df, ['nome'])
         
-        # 3. Carregar aba Fornecedor SOMENTE se CNPJ e Razão Social não estiverem no SF1
-        has_cnpj_in_sf1 = cnpj_col_local is not None and df[cnpj_col_local].notna().sum() > 0
+        # 3. Carregar aba Fornecedor se existir (apenas colunas de Codigo, CNPJ e Razao)
         forn_map = {}
-        if not has_cnpj_in_sf1 and forn_sheet:
+        if forn_sheet:
             try:
-                def col_filter_forn(col_name):
-                    c = str(col_name).lower()
-                    return any(k in c for k in ['cód', 'cod', 'cnpj', 'raz', 'nome', 'loja'])
-                
+                def col_filter_forn(c):
+                    c_low = str(c).lower().strip()
+                    return c_low in ['codigo', 'código', 'cod', 'cód'] or c_low in ['cnpj/cpf', 'cnpj', 'cpf'] or 'razao' in c_low or 'razão' in c_low
+
                 df_forn = pd.read_excel(xl, sheet_name=forn_sheet, usecols=col_filter_forn)
                 if not df_forn.empty:
-                    col_cod = df_forn.columns[0]
-                    col_cnpj = find_col(df_forn, ['cnpj']) or (df_forn.columns[1] if len(df_forn.columns) > 1 else None)
+                    col_cod = find_col(df_forn, ['cod']) or df_forn.columns[0]
+                    col_cnpj = find_col(df_forn, ['cnpj']) or find_col(df_forn, ['cpf']) or (df_forn.columns[1] if len(df_forn.columns) > 1 else None)
                     col_razao = find_col(df_forn, ['raz']) or (df_forn.columns[2] if len(df_forn.columns) > 2 else None)
                     
                     for _, row in df_forn.iterrows():
@@ -129,15 +128,15 @@ class IRRFReconciler:
             forn_code = str(forn_code_raw).strip().lstrip('0') if not pd.isna(forn_code_raw) else ''
             
             cnpj = ''
-            razao = ''
-            if cnpj_col_local and not pd.isna(row.get(cnpj_col_local)):
+            if cnpj_col_local and not pd.isna(row.get(cnpj_col_local)) and str(row.get(cnpj_col_local)).strip() != '' and str(row.get(cnpj_col_local)).strip().lower() != 'nan':
                 cnpj = clean_cnpj(row.get(cnpj_col_local))
-            elif forn_code in forn_map:
+            if not cnpj and forn_code in forn_map:
                 cnpj = forn_map[forn_code]['cnpj']
 
-            if razao_col_local and not pd.isna(row.get(razao_col_local)):
+            razao = ''
+            if razao_col_local and not pd.isna(row.get(razao_col_local)) and str(row.get(razao_col_local)).strip() != '' and str(row.get(razao_col_local)).strip().lower() != 'nan':
                 razao = str(row.get(razao_col_local)).strip()
-            elif forn_code in forn_map:
+            if not razao and forn_code in forn_map:
                 razao = forn_map[forn_code]['razao']
 
             self.sf1_data.append({
