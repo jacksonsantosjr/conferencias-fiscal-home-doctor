@@ -80,19 +80,19 @@ class IRRFReconciler:
 
         df = None
         try:
-            df = pd.read_excel(xl, sheet_name=sf1_sheet, header=None)
-            header_idx = -1
-            for i, row in df.head(10).iterrows():
+            df_head = pd.read_excel(xl, sheet_name=sf1_sheet, nrows=10, header=None)
+            header_idx = 0
+            for i, row in df_head.iterrows():
                 row_str = ' '.join([str(v).lower() for v in row if not pd.isna(v)])
-                if 'filial' in row_str and ('numero' in row_str or 'doc' in row_str or 'nº' in row_str):
+                if 'filial' in row_str and ('numero' in row_str or 'doc' in row_str or 'nº' in row_str or 'titulo' in row_str or 'título' in row_str or 'rend' in row_str):
                     header_idx = i
                     break
             
-            if header_idx != -1:
-                df.columns = df.iloc[header_idx]
-                df = df.iloc[header_idx+1:].reset_index(drop=True)
-            else:
-                df = pd.read_excel(xl, sheet_name=sf1_sheet)
+            def col_filter_sf1(c):
+                c_low = str(c).lower().strip()
+                return any(k in c_low for k in ['filial', 'titulo', 'título', 'numero', 'número', 'doc', 'nº', 'fornecedor', 'forn', 'cnpj', 'raz', 'nome', 'rend', 'irrf', 'ret', 'imp.'])
+
+            df = pd.read_excel(xl, sheet_name=sf1_sheet, header=header_idx, usecols=col_filter_sf1)
         except Exception as e:
             print(f"Notice: Could not read SF1 sheet: {e}")
             return
@@ -246,18 +246,25 @@ class IRRFReconciler:
         cnpj_col = find_col(df, ['cnpj', 'participante']) or find_col(df, ['cnpj']) or find_col(df, ['cpf'])
         razao_col = find_col(df, ['nome', 'benef']) or find_col(df, ['nome']) or find_col(df, ['raz']) or find_col(df, ['participante'])
         filial_col = find_col(df, ['filial'])
-        # Preenche valores vazios com o valor da linha superior (comum em relatórios do Protheus)
-        if filial_col: df[filial_col] = df[filial_col].ffill()
-        if cnpj_col: df[cnpj_col] = df[cnpj_col].ffill()
-        if num_col: df[num_col] = df[num_col].ffill()
-        if razao_col: df[razao_col] = df[razao_col].ffill()
+        tipo_col = find_col(df, ['tipo'])
         
         for _, row in df.iterrows():
+            if tipo_col and pd.notna(row.get(tipo_col)):
+                if str(row.get(tipo_col)).strip().upper() != 'PGT':
+                    continue
+            
+            num_raw = row.get(num_col) if num_col else None
+            if pd.isna(num_raw) or str(num_raw).strip() == '' or str(num_raw).strip().lower() == 'nan':
+                continue
+
             ir_val = parse_currency(row.get(ir_col)) if ir_col else Decimal('0.00')
             if ir_val <= 0:
                 continue
 
-            num = clean_doc_num(row.get(num_col)) if num_col else ''
+            num = clean_doc_num(num_raw)
+            if not num:
+                continue
+
             cnpj = clean_cnpj(row.get(cnpj_col)) if cnpj_col else ''
             razao = str(row.get(razao_col)).strip() if razao_col and not pd.isna(row.get(razao_col)) else ''
             filial = clean_doc_num(row.get(filial_col)) if filial_col else ''
