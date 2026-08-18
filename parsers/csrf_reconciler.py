@@ -568,7 +568,10 @@ class CSRFReconciler:
                     continue
                 else:
                     rec['status'] = 'Ausente'
-                    rec['diagnostico'] = f"Coop. Ausente em: {', '.join(zero_coop)}"
+                    if has_r4020 and ('R-4020' in zero_coop) and (('SE2' not in zero_coop) or ('Aglu.' not in zero_coop)):
+                        rec['diagnostico'] = 'Coop. Ausente no R-4020 (Pendente de Inclusão Manual no REINF)'
+                    else:
+                        rec['diagnostico'] = f"Coop. Ausente em: {', '.join(zero_coop)}"
                     ausentes += 1
                     diff = max(non_zero_coop) if non_zero_coop else Decimal('0.00')
 
@@ -613,7 +616,10 @@ class CSRFReconciler:
                     continue
                 else:
                     rec['status'] = 'Ausente'
-                    rec['diagnostico'] = f"Ausente em: {', '.join(zero_sources)}"
+                    if has_r4020 and ('R-4020' in zero_sources) and (('SE2' not in zero_sources) or ('Aglu.' not in zero_sources)):
+                        rec['diagnostico'] = 'Ausente no R-4020 (Pendente de Inclusão Manual no REINF)'
+                    else:
+                        rec['diagnostico'] = f"Ausente em: {', '.join(zero_sources)}"
                     ausentes += 1
                     diff = max(non_zero_vals) if non_zero_vals else Decimal('0.00')
                 
