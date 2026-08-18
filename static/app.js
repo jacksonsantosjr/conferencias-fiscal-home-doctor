@@ -2237,6 +2237,8 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (item.status === 'Ausente')    mappedStatus = 'SOMENTE_ERP';
         else                                   mappedStatus = 'DIVERGENTE';
 
+        const maxDocVal = Math.max(se2 || 0, aglu || 0, r40 || 0);
+
         return {
           status: mappedStatus,
           numero_erp: item.numero || '-',
@@ -2244,7 +2246,7 @@ document.addEventListener('DOMContentLoaded', () => {
           numero_prefeitura: '-',
           tomador: item.razao || '-',
           cnpj: item.cnpj || '-',
-          valor_erp: se2 !== null ? se2 : (aglu !== null ? aglu : (r40 || 0)),
+          valor_erp: maxDocVal,
           valor_prefeitura: aglu !== null ? aglu : 0,
           diferenca: diff,
           csrf_se2: se2,
@@ -2258,7 +2260,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const divergentes = csrfItems.filter(d => d.status === 'DIVERGENTE').length;
       const ausentes    = csrfItems.filter(d => d.status === 'SOMENTE_ERP').length;
       const total       = csrfItems.length;
-      const totalSe2    = csrfItems.reduce((s, d) => s + (d.csrf_se2 !== null ? d.csrf_se2 : (d.csrf_aglu !== null ? d.csrf_aglu : (d.csrf_r4020 || 0))), 0);
+      const totalAudited = csrfItems.reduce((s, d) => s + Math.max(d.csrf_se2 || 0, d.csrf_aglu || 0, d.csrf_r4020 || 0), 0);
       const taxa        = total > 0 ? ((conciliados / total) * 100).toFixed(1) : '0.0';
 
       currentReconciliationData = {
@@ -2267,11 +2269,11 @@ document.addEventListener('DOMContentLoaded', () => {
         resumo: {
           total_erp_qtd: total,
           total_prefeitura_qtd: total,
-          total_erp_valor: totalSe2,
+          total_erp_valor: totalAudited,
           conciliados_qtd: conciliados,
-          conciliados_valor: csrfItems.filter(d => d.status === 'CONCILIADO').reduce((s, d) => s + (d.csrf_se2 !== null ? d.csrf_se2 : (d.csrf_aglu !== null ? d.csrf_aglu : (d.csrf_r4020 || 0))), 0),
+          conciliados_valor: csrfItems.filter(d => d.status === 'CONCILIADO').reduce((s, d) => s + Math.max(d.csrf_se2 || 0, d.csrf_aglu || 0, d.csrf_r4020 || 0), 0),
           divergentes_qtd: divergentes + ausentes,
-          divergentes_valor: csrfItems.filter(d => d.status !== 'CONCILIADO').reduce((s, d) => s + Math.max(d.csrf_se2||0, d.csrf_aglu||0, d.csrf_r4020||0), 0),
+          divergentes_valor: csrfItems.filter(d => d.status !== 'CONCILIADO').reduce((s, d) => s + Math.max(d.csrf_se2 || 0, d.csrf_aglu || 0, d.csrf_r4020 || 0), 0),
           taxa_assertividade: taxa,
           ausentes_qtd: ausentes,
           divergentes_reais_qtd: divergentes
@@ -2450,6 +2452,8 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (item.status === 'Ausente')    mappedStatus = 'SOMENTE_ERP';
         else                                   mappedStatus = 'DIVERGENTE';
 
+        const maxDocVal = Math.max(sf1 || 0, aglu || 0, r40 || 0);
+
         return {
           status: mappedStatus,
           numero_erp: item.numero || '-',
@@ -2457,7 +2461,7 @@ document.addEventListener('DOMContentLoaded', () => {
           numero_prefeitura: '-',
           tomador: item.razao || '-',
           cnpj: item.cnpj || '-',
-          valor_erp: sf1 !== null ? sf1 : (aglu !== null ? aglu : (r40 || 0)),
+          valor_erp: maxDocVal,
           valor_prefeitura: aglu !== null ? aglu : 0,
           diferenca: diff,
           irrf_sf1: sf1,
@@ -2473,7 +2477,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const divergentes = irrfItems.filter(d => d.status === 'DIVERGENTE').length;
       const ausentes    = irrfItems.filter(d => d.status === 'SOMENTE_ERP').length;
       const total       = irrfItems.length;
-      const totalSf1    = irrfItems.reduce((s, d) => s + (d.irrf_sf1 !== null ? d.irrf_sf1 : (d.irrf_aglu !== null ? d.irrf_aglu : (d.irrf_r4020 || 0))), 0);
+      const totalAudited = irrfItems.reduce((s, d) => s + Math.max(d.irrf_sf1 || 0, d.irrf_aglu || 0, d.irrf_r4020 || 0), 0);
       const taxa        = total > 0 ? ((conciliados / total) * 100).toFixed(1) : '0.0';
 
       currentReconciliationData = {
@@ -2482,11 +2486,11 @@ document.addEventListener('DOMContentLoaded', () => {
         resumo: {
           total_erp_qtd: total,
           total_prefeitura_qtd: total,
-          total_erp_valor: totalSf1,
+          total_erp_valor: totalAudited,
           conciliados_qtd: conciliados,
-          conciliados_valor: irrfItems.filter(d => d.status === 'CONCILIADO').reduce((s, d) => s + (d.irrf_sf1 !== null ? d.irrf_sf1 : (d.irrf_aglu !== null ? d.irrf_aglu : (d.irrf_r4020 || 0))), 0),
+          conciliados_valor: irrfItems.filter(d => d.status === 'CONCILIADO').reduce((s, d) => s + Math.max(d.irrf_sf1 || 0, d.irrf_aglu || 0, d.irrf_r4020 || 0), 0),
           divergentes_qtd: divergentes + ausentes,
-          divergentes_valor: irrfItems.filter(d => d.status !== 'CONCILIADO').reduce((s, d) => s + Math.max(d.irrf_sf1||0, d.irrf_aglu||0, d.irrf_r4020||0), 0),
+          divergentes_valor: irrfItems.filter(d => d.status !== 'CONCILIADO').reduce((s, d) => s + Math.max(d.irrf_sf1 || 0, d.irrf_aglu || 0, d.irrf_r4020 || 0), 0),
           taxa_assertividade: taxa,
           ausentes_qtd: ausentes,
           divergentes_reais_qtd: divergentes
