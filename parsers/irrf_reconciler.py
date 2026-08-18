@@ -55,14 +55,46 @@ class IRRFReconciler:
         forn_sheet = next((s for s in sheet_names if 'fornec' in s.lower()), None)
         sf1_sheet = next((s for s in sheet_names if 'sf1' in s.lower()), sheet_names[0])
         
+        # 1. Achar linha de cabeçalho lendo apenas 10 linhas
+        df_head = pd.read_excel(xl, sheet_name=sf1_sheet, nrows=10, header=None)
+        header_idx = 0
+        for i, row in df_head.iterrows():
+            row_str = ' '.join([str(v).lower() for v in row if pd.notna(v)])
+            if 'filial' in row_str and ('numero' in row_str or 'doc' in row_str or 'nº' in row_str or 'titulo' in row_str or 'título' in row_str or 'rend' in row_str):
+                header_idx = i
+                break
+        
+        # 2. Ler apenas as colunas estritamente necessárias
+        def col_filter_sf1(c):
+            c_low = str(c).lower().strip()
+            return any(k in c_low for k in ['filial', 'titulo', 'título', 'numero', 'número', 'doc', 'nº', 'fornecedor', 'forn', 'cnpj', 'raz', 'nome', 'rend', 'irrf', 'ret', 'imp.'])
+
+        try:
+            df = pd.read_excel(xl, sheet_name=sf1_sheet, header=header_idx, usecols=col_filter_sf1)
+        except Exception as e:
+            print(f"Notice: Could not read SF1 sheet with filter: {e}")
+            df = pd.read_excel(xl, sheet_name=sf1_sheet, header=header_idx)
+            
+        if df is None or df.empty:
+            return
+
+        irrf_col = find_col(df, ['rend']) or find_col(df, ['irrf']) or find_col(df, ['imp'])
+        num_col = find_col(df, ['titulo']) or find_col(df, ['numero']) or find_col(df, ['doc']) or find_col(df, ['nº'])
+        filial_col = find_col(df, ['filial'])
+        forn_col = find_col(df, ['fornecedor']) or find_col(df, ['forn']) or find_col(df, ['cod'])
+        cnpj_col_local = find_col(df, ['cnpj'])
+        razao_col_local = find_col(df, ['raz']) or find_col(df, ['nome'])
+        
+        # 3. Carregar aba Fornecedor SOMENTE se CNPJ e Razão Social não estiverem no SF1
+        has_cnpj_in_sf1 = cnpj_col_local is not None and df[cnpj_col_local].notna().sum() > 0
         forn_map = {}
-        if forn_sheet:
+        if not has_cnpj_in_sf1 and forn_sheet:
             try:
-                def col_filter(col_name):
+                def col_filter_forn(col_name):
                     c = str(col_name).lower()
                     return any(k in c for k in ['cód', 'cod', 'cnpj', 'raz', 'nome', 'loja'])
                 
-                df_forn = pd.read_excel(xl, sheet_name=forn_sheet, usecols=col_filter)
+                df_forn = pd.read_excel(xl, sheet_name=forn_sheet, usecols=col_filter_forn)
                 if not df_forn.empty:
                     col_cod = df_forn.columns[0]
                     col_cnpj = find_col(df_forn, ['cnpj']) or (df_forn.columns[1] if len(df_forn.columns) > 1 else None)
@@ -77,33 +109,6 @@ class IRRFReconciler:
                             forn_map[codigo] = {'cnpj': cnpj, 'razao': razao}
             except Exception as e:
                 print(f"Notice: Could not read Fornecedor sheet: {e}")
-
-        df = None
-        try:
-            df_head = pd.read_excel(xl, sheet_name=sf1_sheet, nrows=10, header=None)
-            header_idx = 0
-            for i, row in df_head.iterrows():
-                row_str = ' '.join([str(v).lower() for v in row if not pd.isna(v)])
-                if 'filial' in row_str and ('numero' in row_str or 'doc' in row_str or 'nº' in row_str or 'titulo' in row_str or 'título' in row_str or 'rend' in row_str):
-                    header_idx = i
-                    break
-            
-            def col_filter_sf1(c):
-                c_low = str(c).lower().strip()
-                return any(k in c_low for k in ['filial', 'titulo', 'título', 'numero', 'número', 'doc', 'nº', 'fornecedor', 'forn', 'cnpj', 'raz', 'nome', 'rend', 'irrf', 'ret', 'imp.'])
-
-            df = pd.read_excel(xl, sheet_name=sf1_sheet, header=header_idx, usecols=col_filter_sf1)
-        except Exception as e:
-            print(f"Notice: Could not read SF1 sheet: {e}")
-            return
-            
-        if df is None or df.empty:
-            return
-
-        irrf_col = find_col(df, ['irrf', 'ret']) or find_col(df, ['irrf']) or find_col(df, ['ret'])
-        num_col = find_col(df, ['numero']) or find_col(df, ['num']) or find_col(df, ['doc']) or find_col(df, ['nº'])
-        filial_col = find_col(df, ['filial'])
-        forn_col = find_col(df, ['fornecedor']) or find_col(df, ['forn']) or find_col(df, ['cod'])
         
         for _, row in df.iterrows():
             if num_col and pd.isna(row.get(num_col)):
@@ -125,16 +130,15 @@ class IRRFReconciler:
             
             cnpj = ''
             razao = ''
-            if forn_code in forn_map:
+            if cnpj_col_local and not pd.isna(row.get(cnpj_col_local)):
+                cnpj = clean_cnpj(row.get(cnpj_col_local))
+            elif forn_code in forn_map:
                 cnpj = forn_map[forn_code]['cnpj']
+
+            if razao_col_local and not pd.isna(row.get(razao_col_local)):
+                razao = str(row.get(razao_col_local)).strip()
+            elif forn_code in forn_map:
                 razao = forn_map[forn_code]['razao']
-            else:
-                cnpj_col_local = find_col(df, ['cnpj'])
-                if cnpj_col_local and not pd.isna(row.get(cnpj_col_local)):
-                    cnpj = clean_cnpj(row.get(cnpj_col_local))
-                razao_col_local = find_col(df, ['raz']) or find_col(df, ['nome'])
-                if razao_col_local and not pd.isna(row.get(razao_col_local)):
-                    razao = str(row.get(razao_col_local)).strip()
 
             self.sf1_data.append({
                 'numero': num,
@@ -403,7 +407,10 @@ class IRRFReconciler:
                 continue
             else:
                 rec['status'] = 'Ausente'
-                rec['diagnostico'] = f"Ausente em: {', '.join(zero_sources)}"
+                if has_r4020 and ('R-4020' in zero_sources) and (('SF1' not in zero_sources) or ('Aglu.' not in zero_sources)):
+                    rec['diagnostico'] = 'Ausente no R-4020 (Pendente de Inclusão Manual no REINF)'
+                else:
+                    rec['diagnostico'] = f"Ausente em: {', '.join(zero_sources)}"
                 ausentes += 1
                 diff = max(non_zero_vals) if non_zero_vals else Decimal('0.00')
             

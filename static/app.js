@@ -2509,7 +2509,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tabCityOnly) tabCityOnly.style.display = 'none';
     if (tabReinf) {
       tabReinf.style.display = 'inline-block';
-      const reinfCount = irrfItems.filter(item => item.status === 'CONCILIADO' && item.diferenca > 0).length;
+      const reinfCount = irrfItems.filter(item => {
+        const hasBase = (item.irrf_sf1 !== null && item.irrf_sf1 !== undefined && item.irrf_sf1 > 0) || 
+                        (item.irrf_aglu !== null && item.irrf_aglu !== undefined && item.irrf_aglu > 0);
+        const missingReinf = (item.irrf_r4020 === null || item.irrf_r4020 === undefined || item.irrf_r4020 === 0);
+        return hasBase && missingReinf;
+      }).length;
       tabReinf.innerHTML = `🎯 REINF (<span id="countReinf">${reinfCount}</span>)`;
     }
 
@@ -2610,12 +2615,16 @@ document.addEventListener('DOMContentLoaded', () => {
     tableBody.innerHTML = '';
 
     const filtered = currentReconciliationData.items.filter(item => {
+      const isReinfPending = ((item.irrf_sf1 !== null && item.irrf_sf1 !== undefined && item.irrf_sf1 > 0) || 
+                              (item.irrf_aglu !== null && item.irrf_aglu !== undefined && item.irrf_aglu > 0)) && 
+                             (item.irrf_r4020 === null || item.irrf_r4020 === undefined || item.irrf_r4020 === 0);
+
       const matchesTab =
         (activeTab === 'all') ||
         (activeTab === 'matched'   && item.status === 'CONCILIADO') ||
         (activeTab === 'divergent' && item.status === 'DIVERGENTE') ||
         (activeTab === 'erp_only'  && item.status === 'SOMENTE_ERP') ||
-        (activeTab === 'reinf'     && item.status === 'CONCILIADO' && item.diferenca > 0);
+        (activeTab === 'reinf'     && isReinfPending);
 
       const itemStr = `${item.numero_erp} ${item.cnpj} ${item.tomador}`.toLowerCase();
       return matchesTab && (!searchTerm || itemStr.includes(searchTerm));
