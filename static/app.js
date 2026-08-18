@@ -1299,33 +1299,39 @@ document.addEventListener('DOMContentLoaded', () => {
     activeProgressTimer = setInterval(() => {
       const elapsedSec = (performance.now() - startTime) / 1000;
       
-      // Progressão suave e perfeitamente sincronizada com o backend de 16 segundos:
+      // Curva assintótica contínua e suave balanceada para resposta rápida (local) ou em lote/nuvem (Render):
       let target = 0;
-      if (elapsedSec <= 3) {
-        target = (elapsedSec / 3) * 30; // 0% a 30% nos primeiros 3s
-      } else if (elapsedSec <= 10) {
-        target = 30 + ((elapsedSec - 3) / 7) * 45; // 30% a 75% entre 3s e 10s
-      } else if (elapsedSec <= 20) {
-        target = 75 + ((elapsedSec - 10) / 10) * 20; // 75% a 95% até 20s
+      if (elapsedSec <= 4) {
+        target = (elapsedSec / 4) * 25; // 0% a 25% nos primeiros 4s (upload/leitura inicial)
+      } else if (elapsedSec <= 15) {
+        target = 25 + ((elapsedSec - 4) / 11) * 28; // 25% a 53% entre 4s e 15s (leitura de bases)
+      } else if (elapsedSec <= 35) {
+        target = 53 + ((elapsedSec - 15) / 20) * 27; // 53% a 80% entre 15s e 35s (cruzamento/regras)
+      } else if (elapsedSec <= 60) {
+        target = 80 + ((elapsedSec - 35) / 25) * 14; // 80% a 94% entre 35s e 60s (apurações fiscais)
       } else {
-        target = 95 + Math.min(3.8, (elapsedSec - 20) * 0.1); // >20s: avanço continuo
+        // >60s: avanço suave contínuo assintótico até 98.5%
+        target = 94 + Math.min(4.5, (elapsedSec - 60) * 0.08);
       }
 
-      currentPercentValue = Math.min(99.2, Math.max(currentPercentValue + 0.15, target));
+      currentPercentValue = Math.min(98.8, Math.max(currentPercentValue + 0.08, target));
 
       const displayVal = Math.floor(currentPercentValue);
       progressBarFill.style.width = `${currentPercentValue.toFixed(1)}%`;
       progressPercentText.textContent = `${displayVal}%`;
 
-      if (displayVal >= 25 && stepIdx === 0 && stepsList[1]) {
+      if (displayVal >= 20 && stepIdx === 0 && stepsList[1]) {
         stepIdx = 1;
         progressStepText.textContent = stepsList[1];
-      } else if (displayVal >= 55 && stepIdx === 1 && stepsList[2]) {
+      } else if (displayVal >= 48 && stepIdx === 1 && stepsList[2]) {
         stepIdx = 2;
         progressStepText.textContent = stepsList[2];
-      } else if (displayVal >= 80 && stepIdx === 2 && stepsList[3]) {
+      } else if (displayVal >= 75 && stepIdx === 2 && stepsList[3]) {
         stepIdx = 3;
         progressStepText.textContent = stepsList[3];
+      } else if (displayVal >= 90 && stepIdx === 3 && elapsedSec > 40) {
+        stepIdx = 4;
+        progressStepText.textContent = 'Processando grande volume e consolidando auditoria...';
       }
     }, 60);
   }
