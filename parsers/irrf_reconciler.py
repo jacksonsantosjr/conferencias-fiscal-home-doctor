@@ -271,6 +271,21 @@ class IRRFReconciler:
             })
 
     def reconcile(self):
+        has_sf1 = len(self.sf1_data) > 0
+        has_aglu = len(self.aglu_data) > 0
+        has_r4020 = len(self.r4020_data) > 0
+        num_active = sum([has_sf1, has_aglu, has_r4020])
+
+        if num_active < 2:
+            return {
+                'conciliados': 0,
+                'divergentes': 0,
+                'ausentes': 0,
+                'total': 0,
+                'detalhes': [],
+                'num_relatorios': num_active
+            }
+
         # 0. Descobrir dinamicamente os prefixos válidos (raiz da matriz)
         todas_filiais_auxiliares = set()
         for item in self.aglu_data + self.r4020_data:
@@ -278,9 +293,14 @@ class IRRFReconciler:
             if f:
                 todas_filiais_auxiliares.add(str(f).lstrip('0'))
         
+        if not todas_filiais_auxiliares:
+            for item in self.sf1_data:
+                f = item.get('filial', '')
+                if f:
+                    todas_filiais_auxiliares.add(str(f).lstrip('0'))
+
         valid_prefixes = set(f[:4] for f in todas_filiais_auxiliares if len(f) >= 4)
         if not valid_prefixes:
-            # Fallback se houver códigos com menos de 4 dígitos (improvável)
             valid_prefixes = set(f for f in todas_filiais_auxiliares if f)
 
         # 1. Agrupar tudo por Filial + Número do Documento
@@ -295,78 +315,100 @@ class IRRFReconciler:
                     'fornecedor': '',
                     'cnpj': '',
                     'razao': '',
-                    'irrf_sf1': Decimal('0.00'),
-                    'irrf_aglu': Decimal('0.00'),
-                    'irrf_r4020': Decimal('0.00'),
-                    'status': ''
+                    'irrf_sf1': Decimal('0.00') if has_sf1 else None,
+                    'irrf_aglu': Decimal('0.00') if has_aglu else None,
+                    'irrf_r4020': Decimal('0.00') if has_r4020 else None,
+                    'status': '',
+                    'diagnostico': ''
                 }
             return master[key]
 
-        for item in self.sf1_data:
-            f_norm = str(item.get('filial', '')).lstrip('0')
-            
-            if valid_prefixes:
-                match = any(f_norm.startswith(p) for p in valid_prefixes)
-                if not match:
-                    continue
+        if has_sf1:
+            for item in self.sf1_data:
+                f_norm = str(item.get('filial', '')).lstrip('0')
+                
+                if valid_prefixes:
+                    match = any(f_norm.startswith(p) for p in valid_prefixes)
+                    if not match:
+                        continue
 
-            rec = get_or_create(item.get('filial', ''), item['numero'])
-            rec['irrf_sf1'] += item['irrf_sf1']
-            if item.get('cnpj'): rec['cnpj'] = item['cnpj']
-            if item.get('razao'): rec['razao'] = item['razao']
-            if item.get('fornecedor_codigo'): rec['fornecedor'] = item['fornecedor_codigo']
+                rec = get_or_create(item.get('filial', ''), item['numero'])
+                rec['irrf_sf1'] += item['irrf_sf1']
+                if item.get('cnpj'): rec['cnpj'] = item['cnpj']
+                if item.get('razao'): rec['razao'] = item['razao']
+                if item.get('fornecedor_codigo'): rec['fornecedor'] = item['fornecedor_codigo']
 
-        for item in self.r4020_data:
-            rec = get_or_create(item.get('filial', ''), item['numero'])
-            rec['irrf_r4020'] += item['irrf_r4020']
-            if item.get('cnpj') and not rec['cnpj']: rec['cnpj'] = item['cnpj']
-            if item.get('razao') and not rec['razao']: rec['razao'] = item['razao']
+        if has_r4020:
+            for item in self.r4020_data:
+                rec = get_or_create(item.get('filial', ''), item['numero'])
+                rec['irrf_r4020'] += item['irrf_r4020']
+                if item.get('cnpj') and not rec['cnpj']: rec['cnpj'] = item['cnpj']
+                if item.get('razao') and not rec['razao']: rec['razao'] = item['razao']
 
-        for item in self.aglu_data:
-            rec = get_or_create(item.get('filial', ''), item['numero'])
-            rec['irrf_aglu'] += item['irrf_aglu']
+        if has_aglu:
+            for item in self.aglu_data:
+                rec = get_or_create(item.get('filial', ''), item['numero'])
+                rec['irrf_aglu'] += item['irrf_aglu']
 
         # 2. Definir o status e montar array de resultados
         results = []
         conciliados = 0
         divergentes = 0
         ausentes = 0
-        
-        target_filiais = set()
-        for item in self.aglu_data:
-            if item.get('filial'):
-                target_filiais.add(item['filial'])
-        for item in self.r4020_data:
-            if item.get('filial'):
-                target_filiais.add(item['filial'])
 
         for key, rec in master.items():
-            if target_filiais and rec['filial'] not in target_filiais:
-                if rec['irrf_aglu'] == 0 and rec['irrf_r4020'] == 0:
+            f_norm = str(rec['filial']).lstrip('0')
+            if valid_prefixes:
+                match = any(f_norm.startswith(p) for p in valid_prefixes)
+                if not match:
                     continue
 
-            s = rec['irrf_sf1']
-            a = rec['irrf_aglu']
-            r = rec['irrf_r4020']
+            active_vals = []
+            if has_sf1 and rec['irrf_sf1'] is not None:
+                active_vals.append(('SF1', rec['irrf_sf1']))
+            if has_aglu and rec['irrf_aglu'] is not None:
+                active_vals.append(('Aglu.', rec['irrf_aglu']))
+            if has_r4020 and rec['irrf_r4020'] is not None:
+                active_vals.append(('R-4020', rec['irrf_r4020']))
 
-            if s > 0 and a > 0 and r > 0 and s == a and a == r:
-                rec['status'] = 'Conciliado'
-                conciliados += 1
-            elif (s == 0 or a == 0 or r == 0) and (s > 0 or a > 0 or r > 0):
-                rec['status'] = 'Ausente'
-                ausentes += 1
+            non_zero_vals = [v for _, v in active_vals if v > 0]
+            zero_sources = [name for name, v in active_vals if v == 0]
+
+            if len(non_zero_vals) == len(active_vals) and len(non_zero_vals) > 0:
+                if len(set(non_zero_vals)) == 1:
+                    rec['status'] = 'Conciliado'
+                    if num_active == 3:
+                        rec['diagnostico'] = 'Sem divergências (SF1 = Aglu. = R-4020)'
+                    elif has_sf1 and has_r4020:
+                        rec['diagnostico'] = 'Conciliado (Base SF1 = REINF R-4020)'
+                    elif has_sf1 and has_aglu:
+                        rec['diagnostico'] = 'Conciliado (Base SF1 = Aglutinação)'
+                    elif has_aglu and has_r4020:
+                        rec['diagnostico'] = 'Conciliado (Aglutinação = REINF R-4020)'
+                    conciliados += 1
+                    diff = Decimal('0.00')
+                else:
+                    rec['status'] = 'Divergente'
+                    rec['diagnostico'] = 'Divergência de Valores'
+                    divergentes += 1
+                    diff = max(non_zero_vals) - min(non_zero_vals)
+            elif len(non_zero_vals) == 0:
+                continue
             else:
-                rec['status'] = 'Divergente'
-                divergentes += 1
+                rec['status'] = 'Ausente'
+                rec['diagnostico'] = f"Ausente em: {', '.join(zero_sources)}"
+                ausentes += 1
+                diff = max(non_zero_vals) if non_zero_vals else Decimal('0.00')
             
             forn = rec.get('fornecedor') or 'N/D'
             cnpj = rec.get('cnpj') or 'N/D'
             raz = rec.get('razao') or 'N/D'
             rec['chave_unica'] = f"{rec['filial']}_{rec['numero']}_{forn}_{cnpj}_{raz}"
             
-            rec['irrf_sf1'] = float(s)
-            rec['irrf_aglu'] = float(a)
-            rec['irrf_r4020'] = float(r)
+            rec['diferenca'] = float(diff)
+            rec['irrf_sf1'] = float(rec['irrf_sf1']) if has_sf1 else None
+            rec['irrf_aglu'] = float(rec['irrf_aglu']) if has_aglu else None
+            rec['irrf_r4020'] = float(rec['irrf_r4020']) if has_r4020 else None
             results.append(rec)
             
         return {
@@ -374,5 +416,6 @@ class IRRFReconciler:
             'divergentes': divergentes,
             'ausentes': ausentes,
             'total': len(results),
-            'detalhes': results
+            'detalhes': results,
+            'num_relatorios': num_active
         }

@@ -1831,15 +1831,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnStartCsrfAudit) {
     btnStartCsrfAudit.addEventListener('click', async () => {
-      if (!selectedSe2CsrfFile || !selectedAgluCsrfFile || !selectedR4020CsrfFile) {
-        alert('Por favor, selecione os 3 arquivos (SE2, Aglutinação e R-4020) para a conciliação de CSRF (PCC).');
+      const csrfFiles = [selectedSe2CsrfFile, selectedAgluCsrfFile, selectedR4020CsrfFile].filter(Boolean);
+      if (csrfFiles.length < 2) {
+        alert('Por favor, selecione pelo menos 2 dos 3 relatórios (SE2, Aglutinação ou R-4020) para a conciliação de CSRF (PCC).');
         return;
       }
       
       const formData = new FormData();
-      formData.append('se2_file', selectedSe2CsrfFile);
-      formData.append('aglu_file', selectedAgluCsrfFile);
-      formData.append('r4020_file', selectedR4020CsrfFile);
+      if (selectedSe2CsrfFile) formData.append('se2_file', selectedSe2CsrfFile);
+      if (selectedAgluCsrfFile) formData.append('aglu_file', selectedAgluCsrfFile);
+      if (selectedR4020CsrfFile) formData.append('r4020_file', selectedR4020CsrfFile);
       
       startSmoothProgress(
         `Auditoria de CSRF (PCC)`,
@@ -1880,16 +1881,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnStartIrrfAudit) {
     btnStartIrrfAudit.addEventListener('click', async () => {
-      if (!selectedSf1File || !selectedAgluFile || !selectedR4020File) {
-        alert('Por favor, selecione os três relatórios (SF1, Aglutinação e R-4020) antes de iniciar a conferência de IRRF.');
+      const irrfFiles = [selectedSf1File, selectedAgluFile, selectedR4020File].filter(Boolean);
+      if (irrfFiles.length < 2) {
+        alert('Por favor, selecione pelo menos 2 dos 3 relatórios (SF1, Aglutinação ou R-4020) antes de iniciar a conferência de IRRF.');
         return;
       }
 
       startSmoothProgress(
         `Auditoria de IRRF`,
         [
-          'Lendo base volumosa de Fornecedores e Títulos (SF1)...',
-          'Processando cruzamento com espelhos de Aglutinação e R-4020...',
+          'Lendo relatórios fiscais selecionados...',
+          'Processando cruzamento entre as bases disponíveis...',
           'Analisando notas fiscais e identificando inconsistências...',
           'Consolidando divergências de Retenção de IRRF...'
         ]
@@ -1897,9 +1899,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         const formData = new FormData();
-        formData.append('sf1_file', selectedSf1File);
-        formData.append('aglu_file', selectedAgluFile);
-        formData.append('r4020_file', selectedR4020File);
+        if (selectedSf1File) formData.append('sf1_file', selectedSf1File);
+        if (selectedAgluFile) formData.append('aglu_file', selectedAgluFile);
+        if (selectedR4020File) formData.append('r4020_file', selectedR4020File);
 
         let response;
         try {
@@ -2215,13 +2217,14 @@ document.addEventListener('DOMContentLoaded', () => {
       currentReconciliationData = result;
     } else {
       const detalhes = result.detalhes || [];
+      const numRel = result.num_relatorios || (detalhes.length > 0 ? [detalhes[0].valor_erp, detalhes[0].valor_aglu, detalhes[0].valor_reinf].filter(v => v !== null && v !== undefined).length : 3);
 
       // Mapear dados CSRF para o formato items padrão
       const csrfItems = detalhes.map(item => {
-        const se2  = item.valor_erp  || 0;
-        const aglu = item.valor_aglu || 0;
-        const r40  = item.valor_reinf || 0;
-        const diff = Math.abs(item.diferenca) || 0;
+        const se2  = item.valor_erp !== undefined && item.valor_erp !== null ? item.valor_erp : null;
+        const aglu = item.valor_aglu !== undefined && item.valor_aglu !== null ? item.valor_aglu : null;
+        const r40  = item.valor_reinf !== undefined && item.valor_reinf !== null ? item.valor_reinf : null;
+        const diff = item.diferenca !== undefined ? Math.abs(item.diferenca) : 0;
 
         let mappedStatus;
         if (item.status === 'Conciliado')      mappedStatus = 'CONCILIADO';
@@ -2235,8 +2238,8 @@ document.addEventListener('DOMContentLoaded', () => {
           numero_prefeitura: '-',
           tomador: item.razao || '-',
           cnpj: item.cnpj || '-',
-          valor_erp: se2,
-          valor_prefeitura: aglu,
+          valor_erp: se2 !== null ? se2 : (aglu !== null ? aglu : (r40 || 0)),
+          valor_prefeitura: aglu !== null ? aglu : 0,
           diferenca: diff,
           csrf_se2: se2,
           csrf_aglu: aglu,
@@ -2249,7 +2252,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const divergentes = csrfItems.filter(d => d.status === 'DIVERGENTE').length;
       const ausentes    = csrfItems.filter(d => d.status === 'SOMENTE_ERP').length;
       const total       = csrfItems.length;
-      const totalSe2    = csrfItems.reduce((s, d) => s + (d.csrf_se2 || 0), 0);
+      const totalSe2    = csrfItems.reduce((s, d) => s + (d.csrf_se2 !== null ? d.csrf_se2 : (d.csrf_aglu !== null ? d.csrf_aglu : (d.csrf_r4020 || 0))), 0);
       const taxa        = total > 0 ? ((conciliados / total) * 100).toFixed(1) : '0.0';
 
       currentReconciliationData = {
@@ -2260,7 +2263,7 @@ document.addEventListener('DOMContentLoaded', () => {
           total_prefeitura_qtd: total,
           total_erp_valor: totalSe2,
           conciliados_qtd: conciliados,
-          conciliados_valor: csrfItems.filter(d => d.status === 'CONCILIADO').reduce((s, d) => s + (d.csrf_se2 || 0), 0),
+          conciliados_valor: csrfItems.filter(d => d.status === 'CONCILIADO').reduce((s, d) => s + (d.csrf_se2 !== null ? d.csrf_se2 : (d.csrf_aglu !== null ? d.csrf_aglu : (d.csrf_r4020 || 0))), 0),
           divergentes_qtd: divergentes + ausentes,
           divergentes_valor: csrfItems.filter(d => d.status !== 'CONCILIADO').reduce((s, d) => s + Math.max(d.csrf_se2||0, d.csrf_aglu||0, d.csrf_r4020||0), 0),
           taxa_assertividade: taxa,
@@ -2315,10 +2318,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const elCountDivergent = document.getElementById('countDivergent');
     const elCountErpOnly  = document.getElementById('countErpOnly');
 
+    const numRel = result.num_relatorios || (csrfItems.length > 0 ? [csrfItems[0].csrf_se2, csrfItems[0].csrf_aglu, csrfItems[0].csrf_r4020].filter(v => v !== null && v !== undefined).length : 3);
     if (elTotal)          elTotal.textContent        = formatCurrency(resumo.total_erp_valor);
-    if (elTotalCount)     elTotalCount.textContent    = `${resumo.total_erp_qtd} documentos analisados (3 relatórios cruzados)`;
+    if (elTotalCount)     elTotalCount.textContent    = `${resumo.total_erp_qtd} documentos analisados (${numRel} relatórios cruzados)`;
     if (elMatchedVal)     elMatchedVal.textContent    = `${resumo.conciliados_qtd}`;
-    if (elMatchedCount)   elMatchedCount.textContent  = 'Sem divergências (SE2 = Aglu. = R-4020)';
+    
+    let subtextCsrfMatched = 'Sem divergências (SE2 = Aglu. = R-4020)';
+    if (numRel === 2) {
+      const hasSe2 = csrfItems.some(d => d.csrf_se2 !== null);
+      const hasAglu = csrfItems.some(d => d.csrf_aglu !== null);
+      const hasR4020 = csrfItems.some(d => d.csrf_r4020 !== null);
+      if (hasSe2 && hasAglu) subtextCsrfMatched = 'Sem divergências (Base SE2 = Aglutinação)';
+      else if (hasSe2 && hasR4020) subtextCsrfMatched = 'Sem divergências (Base SE2 = REINF R-4020)';
+      else if (hasAglu && hasR4020) subtextCsrfMatched = 'Sem divergências (Aglutinação = REINF R-4020)';
+    }
+    if (elMatchedCount)   elMatchedCount.textContent  = subtextCsrfMatched;
     if (elDivVal)         elDivVal.textContent        = `${resumo.divergentes_qtd}`;
     if (elDivCount)       elDivCount.textContent      = `${resumo.ausentes_qtd} ausentes + ${resumo.divergentes_reais_qtd} com divergência`;
     if (elAccuracy)       elAccuracy.textContent      = `${resumo.taxa_assertividade}%`;
@@ -2396,9 +2410,9 @@ document.addEventListener('DOMContentLoaded', () => {
         <td><strong>${item.numero_erp || item.rps_erp || '-'}</strong></td>
         <td>${item.cnpj || '-'}</td>
         <td>${item.tomador || '-'}</td>
-        <td>${formatCurrency(item.csrf_se2 || 0)}</td>
-        <td>${formatCurrency(item.csrf_aglu || 0)}</td>
-        <td>${formatCurrency(item.csrf_r4020 || 0)}</td>
+        <td>${item.csrf_se2 !== null && item.csrf_se2 !== undefined ? formatCurrency(item.csrf_se2) : '<span style="color: var(--text-muted);">-</span>'}</td>
+        <td>${item.csrf_aglu !== null && item.csrf_aglu !== undefined ? formatCurrency(item.csrf_aglu) : '<span style="color: var(--text-muted);">-</span>'}</td>
+        <td>${item.csrf_r4020 !== null && item.csrf_r4020 !== undefined ? formatCurrency(item.csrf_r4020) : '<span style="color: var(--text-muted);">-</span>'}</td>
         <td style="color: ${item.diferenca > 0.04 ? 'var(--status-danger-text)' : 'var(--text-muted)'}">
           ${formatCurrency(item.diferenca || 0)}
         </td>
@@ -2416,15 +2430,14 @@ document.addEventListener('DOMContentLoaded', () => {
       currentReconciliationData = result;
     } else {
       const detalhes = result.detalhes || [];
+      const numRel = result.num_relatorios || (detalhes.length > 0 ? [detalhes[0].irrf_sf1, detalhes[0].irrf_aglu, detalhes[0].irrf_r4020].filter(v => v !== null && v !== undefined).length : 3);
 
       // Mapear dados IRRF para o formato items padrão
       const irrfItems = detalhes.map(item => {
-        const sf1  = item.irrf_sf1  || 0;
-        const aglu = item.irrf_aglu || 0;
-        const r40  = item.irrf_r4020 || 0;
-        const maxV = Math.max(sf1, aglu, r40);
-        const minV = Math.min(sf1, aglu, r40);
-        const diff = maxV - minV;
+        const sf1  = item.irrf_sf1 !== undefined && item.irrf_sf1 !== null ? item.irrf_sf1 : null;
+        const aglu = item.irrf_aglu !== undefined && item.irrf_aglu !== null ? item.irrf_aglu : null;
+        const r40  = item.irrf_r4020 !== undefined && item.irrf_r4020 !== null ? item.irrf_r4020 : null;
+        const diff = item.diferenca !== undefined ? Math.abs(item.diferenca) : 0;
 
         let mappedStatus;
         if (item.status === 'Conciliado')      mappedStatus = 'CONCILIADO';
@@ -2438,15 +2451,15 @@ document.addEventListener('DOMContentLoaded', () => {
           numero_prefeitura: '-',
           tomador: item.razao || '-',
           cnpj: item.cnpj || '-',
-          valor_erp: sf1,
-          valor_prefeitura: aglu,
+          valor_erp: sf1 !== null ? sf1 : (aglu !== null ? aglu : (r40 || 0)),
+          valor_prefeitura: aglu !== null ? aglu : 0,
           diferenca: diff,
           irrf_sf1: sf1,
           irrf_aglu: aglu,
           irrf_r4020: r40,
-          diagnostico: item.status === 'Conciliado' ? 'Três bases conciliadas' :
-                       item.status === 'Ausente'    ? 'Ausente em um dos relatórios' :
-                                                     'Divergência entre os três relatórios'
+          diagnostico: item.diagnostico || (mappedStatus === 'CONCILIADO' ? 'Bases conciliadas' :
+                       mappedStatus === 'SOMENTE_ERP'    ? 'Ausente em um dos relatórios' :
+                                                     'Divergência de Valores')
         };
       });
 
@@ -2454,7 +2467,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const divergentes = irrfItems.filter(d => d.status === 'DIVERGENTE').length;
       const ausentes    = irrfItems.filter(d => d.status === 'SOMENTE_ERP').length;
       const total       = irrfItems.length;
-      const totalSf1    = irrfItems.reduce((s, d) => s + (d.irrf_sf1 || 0), 0);
+      const totalSf1    = irrfItems.reduce((s, d) => s + (d.irrf_sf1 !== null ? d.irrf_sf1 : (d.irrf_aglu !== null ? d.irrf_aglu : (d.irrf_r4020 || 0))), 0);
       const taxa        = total > 0 ? ((conciliados / total) * 100).toFixed(1) : '0.0';
 
       currentReconciliationData = {
@@ -2465,7 +2478,7 @@ document.addEventListener('DOMContentLoaded', () => {
           total_prefeitura_qtd: total,
           total_erp_valor: totalSf1,
           conciliados_qtd: conciliados,
-          conciliados_valor: irrfItems.filter(d => d.status === 'CONCILIADO').reduce((s, d) => s + (d.irrf_sf1 || 0), 0),
+          conciliados_valor: irrfItems.filter(d => d.status === 'CONCILIADO').reduce((s, d) => s + (d.irrf_sf1 !== null ? d.irrf_sf1 : (d.irrf_aglu !== null ? d.irrf_aglu : (d.irrf_r4020 || 0))), 0),
           divergentes_qtd: divergentes + ausentes,
           divergentes_valor: irrfItems.filter(d => d.status !== 'CONCILIADO').reduce((s, d) => s + Math.max(d.irrf_sf1||0, d.irrf_aglu||0, d.irrf_r4020||0), 0),
           taxa_assertividade: taxa,
@@ -2519,10 +2532,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const elCountDivergent = document.getElementById('countDivergent');
     const elCountErpOnly  = document.getElementById('countErpOnly');
 
+    const numRel = result.num_relatorios || (irrfItems.length > 0 ? [irrfItems[0].irrf_sf1, irrfItems[0].irrf_aglu, irrfItems[0].irrf_r4020].filter(v => v !== null && v !== undefined).length : 3);
     if (elTotal)          elTotal.textContent        = formatCurrency(resumo.total_erp_valor);
-    if (elTotalCount)     elTotalCount.textContent    = `${resumo.total_erp_qtd} documentos analisados (3 relatórios cruzados)`;
+    if (elTotalCount)     elTotalCount.textContent    = `${resumo.total_erp_qtd} documentos analisados (${numRel} relatórios cruzados)`;
     if (elMatchedVal)     elMatchedVal.textContent    = `${resumo.conciliados_qtd}`;
-    if (elMatchedCount)   elMatchedCount.textContent  = 'Sem divergências (SF1 = Aglu. = R-4020)';
+    
+    let subtextIrrfMatched = 'Sem divergências (SF1 = Aglu. = R-4020)';
+    if (numRel === 2) {
+      const hasSf1 = irrfItems.some(d => d.irrf_sf1 !== null);
+      const hasAglu = irrfItems.some(d => d.irrf_aglu !== null);
+      const hasR4020 = irrfItems.some(d => d.irrf_r4020 !== null);
+      if (hasSf1 && hasAglu) subtextIrrfMatched = 'Sem divergências (Base SF1 = Aglutinação)';
+      else if (hasSf1 && hasR4020) subtextIrrfMatched = 'Sem divergências (Base SF1 = REINF R-4020)';
+      else if (hasAglu && hasR4020) subtextIrrfMatched = 'Sem divergências (Aglutinação = REINF R-4020)';
+    }
+    if (elMatchedCount)   elMatchedCount.textContent  = subtextIrrfMatched;
     if (elDivVal)         elDivVal.textContent        = `${resumo.divergentes_qtd}`;
     if (elDivCount)       elDivCount.textContent      = `${resumo.ausentes_qtd} ausentes + ${resumo.divergentes_reais_qtd} com divergência`;
     if (elAccuracy)       elAccuracy.textContent      = `${resumo.taxa_assertividade}%`;
@@ -2600,9 +2624,9 @@ document.addEventListener('DOMContentLoaded', () => {
         <td><strong>${item.numero_erp}</strong></td>
         <td>${item.cnpj}</td>
         <td>${item.tomador}</td>
-        <td>${formatCurrency(item.irrf_sf1)}</td>
-        <td>${formatCurrency(item.irrf_aglu)}</td>
-        <td>${formatCurrency(item.irrf_r4020)}</td>
+        <td>${item.irrf_sf1 !== null && item.irrf_sf1 !== undefined ? formatCurrency(item.irrf_sf1) : '<span style="color: var(--text-muted);">-</span>'}</td>
+        <td>${item.irrf_aglu !== null && item.irrf_aglu !== undefined ? formatCurrency(item.irrf_aglu) : '<span style="color: var(--text-muted);">-</span>'}</td>
+        <td>${item.irrf_r4020 !== null && item.irrf_r4020 !== undefined ? formatCurrency(item.irrf_r4020) : '<span style="color: var(--text-muted);">-</span>'}</td>
         <td style="color: ${diff > 0.04 ? 'var(--status-danger-text)' : 'var(--text-muted)'}; font-weight: 600;">${formatCurrency(diff)}</td>
         <td><small style="color: var(--text-muted);">${item.diagnostico}</small></td>
       `;

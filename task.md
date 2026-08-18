@@ -14,4 +14,7 @@
 - [x] Separação dos módulos IRRF e CSRF (PCC) na Sidebar da Interface <!-- id: 11 -->
 - [x] Correção do processamento de relatórios do módulo IRRF (Parser Multipart de arquivos binários pesados, tratamento de erros e resiliência no parsing do Excel/PDF) <!-- id: 12 -->
 - [x] Ajuste do filtro padrão da tabela de resultados para 'Todas' em todos os módulos de conferência <!-- id: 13 -->
+- [x] Flexibilização da conciliação de IRRF e CSRF (PCC) para execução com 2 ou 3 relatórios (qualquer combinação de no mínimo 2 arquivos) com traço discreto (-) para colunas não informadas <!-- id: 14 -->
+- [x] Refinamento da conciliação de CSRF (PCC) para reconhecimento automático de Cooperativas (PIS/COFINS) no R-4020, ajuste do total auditado e subtextos dinâmicos <!-- id: 15 -->
+- [x] Correção do agrupamento de filiais no ERP por prefixo da cidade (evitando omissão de sub-filiais não declaradas na DCTFWeb) <!-- id: 16 -->
 

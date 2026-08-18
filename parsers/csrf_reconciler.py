@@ -369,16 +369,12 @@ class CSRFReconciler:
 
             num_col = find_col(['Nº do Documento', 'Documento', 'Num', 'Nº', 'Nota'])
             val_col = find_col(['Valor Agregado'])
+            pis_col = find_col(['Valor do PIS', 'Valor PIS'])
+            cofins_col = find_col(['Valor do COFINS', 'Valor COFINS'])
+            csll_col = find_col(['Valor do CSLL', 'Valor CSLL'])
+            nat_col = find_col(['Natureza de Rendimento', 'Natureza'])
             razao_col = find_col(['Nome Beneficiário', 'Nome Beneficiario', 'Beneficiário', 'Beneficiario', 'Razão', 'Razao', 'Nome'])
             tipo_col = find_col(['Tipo'])
-            
-            if not val_col:
-                print("Aviso: Coluna Valor Agregado não encontrada no R-4020 CSRF!")
-                # Fallback extremo: tenta pegar qualquer coluna que tenha 'valor'
-                val_col = find_col(['Valor'])
-                if not val_col:
-                    return
-                print(f"DEBUG: Usando fallback val_col={val_col}")
             
             # Preenche valores vazios com o valor da linha superior (comum em relatórios do Protheus)
             if filial_col: df[filial_col] = df[filial_col].ffill()
@@ -392,32 +388,71 @@ class CSRFReconciler:
                     if tipo_val != 'PGT':
                         continue
                         
-                val = parse_currency(row.get(val_col, 0))
-                if val <= 0:
-                    continue
-                    
-                cnpj = str(row.get(cnpj_col, '')).strip() if cnpj_col else ''
+                val_agregado = parse_currency(row.get(val_col, 0)) if val_col else Decimal('0.00')
+                val_pis = parse_currency(row.get(pis_col, 0)) if pis_col else Decimal('0.00')
+                val_cofins = parse_currency(row.get(cofins_col, 0)) if cofins_col else Decimal('0.00')
+                val_csll = parse_currency(row.get(csll_col, 0)) if csll_col else Decimal('0.00')
+                
+                nat = str(row.get(nat_col, '')).strip() if nat_col else ''
                 razao = str(row.get(razao_col, '')).strip() if razao_col else ''
+                cnpj = str(row.get(cnpj_col, '')).strip() if cnpj_col else ''
                 filial = clean_filial(row.get(filial_col)) if filial_col else ''
                 numero = clean_doc_num(row.get(num_col)) if num_col else ''
+                
+                if val_agregado > 0:
+                    total_val = val_agregado
+                else:
+                    total_val = val_pis + val_cofins + val_csll
+
+                if total_val <= 0:
+                    continue
+                
+                is_coop = (nat == '15001' or 'COOP' in razao.upper() or (val_pis > 0 and val_csll == 0 and val_agregado == 0))
                 
                 self.r4020_data.append({
                     'filial': filial,
                     'numero': numero,
                     'cnpj': cnpj,
                     'razao': razao,
-                    'valor_agregado': val
+                    'is_coop': 'SIM' if is_coop else 'NÃO',
+                    'r4020_pis': val_pis,
+                    'r4020_cofins': val_cofins,
+                    'r4020_csll': val_csll,
+                    'valor_agregado': total_val
                 })
         except Exception as e:
             print("Notice: Could not parse R-4020 CSRF:", e)
 
     def reconcile(self):
+        has_se2 = len(self.se2_data) > 0
+        has_aglu = len(self.aglu_data) > 0
+        has_r4020 = len(self.r4020_data) > 0
+        num_active = sum([has_se2, has_aglu, has_r4020])
+
+        if num_active < 2:
+            return {
+                'detalhes': [],
+                'resumo': {
+                    'total_processado': 0,
+                    'conciliados': 0,
+                    'divergentes': 0,
+                    'ausentes': 0
+                },
+                'num_relatorios': num_active
+            }
+
         todas_filiais_auxiliares = set()
         for item in self.aglu_data + self.r4020_data:
             f = item.get('filial', '')
             if f:
                 todas_filiais_auxiliares.add(f)
         
+        if not todas_filiais_auxiliares:
+            for item in self.se2_data:
+                f = item.get('filial', '')
+                if f:
+                    todas_filiais_auxiliares.add(f)
+
         valid_prefixes = set(f.split('_')[0] for f in todas_filiais_auxiliares if f)
 
         master = {}
@@ -437,119 +472,159 @@ class CSRFReconciler:
                     'aglu_cofins': Decimal('0.00'),
                     'aglu_csll': Decimal('0.00'),
                     'r4020_agregado': Decimal('0.00'),
+                    'r4020_pis': Decimal('0.00'),
+                    'r4020_cofins': Decimal('0.00'),
+                    'r4020_csll': Decimal('0.00'),
                     'status': '',
                     'diagnostico': ''
                 }
             return master[key]
 
-        for item in self.se2_data:
-            f_norm = str(item.get('filial', ''))
-            f_prefix = f_norm.split('_')[0] if f_norm else ''
-            if valid_prefixes and f_prefix not in valid_prefixes:
-                continue
-            
-            rec = get_or_create(item['filial'], item['numero'])
-            if item.get('cnpj'): rec['cnpj'] = item['cnpj']
-            if item.get('razao'): rec['razao'] = item['razao']
-            
-            # Se já for cooperativa num dos itens da mesma NF, mantém
-            if item['is_coop'] == 'SIM': 
-                rec['is_coop'] = 'SIM'
-            
-            rec['se2_pis'] += item['pis']
-            rec['se2_cofins'] += item['cofins']
-            rec['se2_pcc'] += item['pcc']
+        if has_se2:
+            for item in self.se2_data:
+                f_norm = str(item.get('filial', ''))
+                f_prefix = f_norm.split('_')[0] if f_norm else ''
+                if valid_prefixes and f_prefix not in valid_prefixes:
+                    continue
+                
+                rec = get_or_create(item['filial'], item['numero'])
+                if item.get('cnpj'): rec['cnpj'] = item['cnpj']
+                if item.get('razao'): rec['razao'] = item['razao']
+                
+                # Se já for cooperativa num dos itens da mesma NF, mantém
+                if item['is_coop'] == 'SIM': 
+                    rec['is_coop'] = 'SIM'
+                
+                rec['se2_pis'] += item['pis']
+                rec['se2_cofins'] += item['cofins']
+                rec['se2_pcc'] += item['pcc']
 
-        for item in self.aglu_data:
-            rec = get_or_create(item['filial'], item['numero'])
-            nat = item['natureza']
-            if nat == 'PIS':
-                rec['aglu_pis'] += item['valor']
-            elif nat == 'COFINS':
-                rec['aglu_cofins'] += item['valor']
-            elif nat in ['CSLL', 'PCC']:
-                rec['aglu_csll'] += item['valor']
+        if has_aglu:
+            for item in self.aglu_data:
+                rec = get_or_create(item['filial'], item['numero'])
+                nat = item['natureza']
+                if nat == 'PIS':
+                    rec['aglu_pis'] += item['valor']
+                elif nat == 'COFINS':
+                    rec['aglu_cofins'] += item['valor']
+                elif nat in ['CSLL', 'PCC']:
+                    rec['aglu_csll'] += item['valor']
 
-        for item in self.r4020_data:
-            rec = get_or_create(item['filial'], item['numero'])
-            rec['r4020_agregado'] += item['valor_agregado']
-            if item.get('cnpj') and not rec['cnpj']: rec['cnpj'] = item['cnpj']
-            if item.get('razao') and not rec['razao']: rec['razao'] = item['razao']
+        if has_r4020:
+            for item in self.r4020_data:
+                rec = get_or_create(item['filial'], item['numero'])
+                rec['r4020_agregado'] += item['valor_agregado']
+                rec['r4020_pis'] += item.get('r4020_pis', Decimal('0.00'))
+                rec['r4020_cofins'] += item.get('r4020_cofins', Decimal('0.00'))
+                rec['r4020_csll'] += item.get('r4020_csll', Decimal('0.00'))
+                if item.get('is_coop') == 'SIM':
+                    rec['is_coop'] = 'SIM'
+                if item.get('cnpj') and not rec['cnpj']: rec['cnpj'] = item['cnpj']
+                if item.get('razao') and not rec['razao']: rec['razao'] = item['razao']
 
-        target_filiais = set()
-        for item in self.aglu_data + self.r4020_data:
-            if item.get('filial'):
-                f_norm = str(item['filial']).lstrip('0')
-                if f_norm:
-                    target_filiais.add(f_norm)
-        
-        print(f"DEBUG: aglu_data={len(self.aglu_data)} r4020_data={len(self.r4020_data)} se2_data={len(self.se2_data)}")
-        print(f"DEBUG: target_filiais={target_filiais}")
-        
+        # Validação de filiais pelo prefixo da cidade (valid_prefixes)
         results = []
         conciliados = 0
         divergentes = 0
         ausentes = 0
 
         for key, rec in master.items():
-            if target_filiais and rec['filial'] not in target_filiais:
-                if rec['aglu_pis'] == 0 and rec['aglu_cofins'] == 0 and rec['aglu_csll'] == 0 and rec['r4020_agregado'] == 0:
-                    continue
+            rec_prefix = rec['filial'].split('_')[0] if rec['filial'] else ''
+            if valid_prefixes and rec_prefix not in valid_prefixes:
+                continue
             
             if rec['is_coop'] == 'SIM':
-                se2_total_coop = rec['se2_pis'] + rec['se2_cofins']
-                aglu_total_coop = rec['aglu_pis'] + rec['aglu_cofins']
+                se2_total_coop = (rec['se2_pis'] + rec['se2_cofins']) if has_se2 else None
+                aglu_total_coop = (rec['aglu_pis'] + rec['aglu_cofins'] + rec['aglu_csll']) if has_aglu else None
+                r4020_total_coop = (rec['r4020_pis'] + rec['r4020_cofins'] if (rec['r4020_pis'] > 0 or rec['r4020_cofins'] > 0) else rec['r4020_agregado']) if has_r4020 else None
                 
-                if se2_total_coop == aglu_total_coop and se2_total_coop > 0:
-                    rec['status'] = 'Conciliado'
-                    rec['diagnostico'] = 'Coop. Conciliada (SE2 = Aglu)'
-                    conciliados += 1
-                elif se2_total_coop > 0 and aglu_total_coop == 0:
-                    rec['status'] = 'Ausente'
-                    rec['diagnostico'] = 'Coop. Ausente na Aglutinação'
-                    ausentes += 1
-                elif se2_total_coop == 0 and aglu_total_coop > 0:
-                    rec['status'] = 'Ausente'
-                    rec['diagnostico'] = 'Coop. Ausente no ERP (SE2)'
-                    ausentes += 1
-                else:
-                    rec['status'] = 'Divergente'
-                    rec['diagnostico'] = 'Divergência de Valores (Coop.)'
-                    divergentes += 1
+                coop_vals = []
+                if has_se2: coop_vals.append(('SE2', se2_total_coop))
+                if has_aglu: coop_vals.append(('Aglu.', aglu_total_coop))
+                if has_r4020: coop_vals.append(('R-4020', r4020_total_coop))
 
-                rec['valor_erp'] = se2_total_coop
-                rec['valor_aglu'] = aglu_total_coop
-                rec['valor_reinf'] = Decimal('0.00')
-                # Overwrite 'razao' to mark it clearly in UI if desired
-                rec['razao'] = f"[COOP] {rec['razao']}" if not rec['razao'].startswith('[COOP]') else rec['razao']
+                non_zero_coop = [v for _, v in coop_vals if v is not None and v > 0]
+                zero_coop = [name for name, v in coop_vals if v is not None and v == 0]
+
+                if len(non_zero_coop) == len(coop_vals) and len(non_zero_coop) > 0:
+                    if len(set(non_zero_coop)) == 1:
+                        rec['status'] = 'Conciliado'
+                        if num_active == 3:
+                            rec['diagnostico'] = 'Sem divergências (SE2 = Aglu. = R-4020)'
+                        elif has_se2 and has_aglu:
+                            rec['diagnostico'] = 'Coop. Conciliada (Base SE2 = Aglutinação)'
+                        elif has_se2 and has_r4020:
+                            rec['diagnostico'] = 'Coop. Conciliada (Base SE2 = REINF R-4020)'
+                        elif has_aglu and has_r4020:
+                            rec['diagnostico'] = 'Coop. Conciliada (Aglutinação = REINF R-4020)'
+                        conciliados += 1
+                        diff = Decimal('0.00')
+                    else:
+                        rec['status'] = 'Divergente'
+                        rec['diagnostico'] = 'Divergência de Valores (Coop.)'
+                        divergentes += 1
+                        diff = max(non_zero_coop) - min(non_zero_coop)
+                elif len(non_zero_coop) == 0:
+                    continue
+                else:
+                    rec['status'] = 'Ausente'
+                    rec['diagnostico'] = f"Coop. Ausente em: {', '.join(zero_coop)}"
+                    ausentes += 1
+                    diff = max(non_zero_coop) if non_zero_coop else Decimal('0.00')
+
+                rec['valor_erp'] = float(se2_total_coop) if has_se2 else None
+                rec['valor_aglu'] = float(aglu_total_coop) if has_aglu else None
+                rec['valor_reinf'] = float(r4020_total_coop) if has_r4020 else None
+                rec['diferenca'] = float(diff)
+                rec['razao'] = f"[COOP] {rec['razao']}" if rec['razao'] and not rec['razao'].startswith('[COOP]') else (rec['razao'] or '[COOP] COOPERATIVA')
 
             else:
-                se2_pcc = rec['se2_pcc']
-                aglu_total = rec['aglu_pis'] + rec['aglu_cofins'] + rec['aglu_csll']
-                r4020_total = rec['r4020_agregado']
-                
-                if se2_pcc > 0 and aglu_total > 0 and r4020_total > 0 and se2_pcc == aglu_total and aglu_total == r4020_total:
-                    rec['status'] = 'Conciliado'
-                    rec['diagnostico'] = 'Sem divergências (SE2 = Aglu. = R-4020)'
-                    conciliados += 1
-                elif (se2_pcc == 0 or aglu_total == 0 or r4020_total == 0) and (se2_pcc > 0 or aglu_total > 0 or r4020_total > 0):
-                    rec['status'] = 'Ausente'
-                    rec['diagnostico'] = 'Ausente em um dos relatórios'
-                    ausentes += 1
-                else:
-                    rec['status'] = 'Divergente'
-                    rec['diagnostico'] = 'Divergência de Valores'
-                    divergentes += 1
-                
-                rec['valor_erp'] = se2_pcc
-                rec['valor_aglu'] = aglu_total
-                rec['valor_reinf'] = r4020_total
+                se2_pcc = rec['se2_pcc'] if has_se2 else None
+                aglu_total = (rec['aglu_pis'] + rec['aglu_cofins'] + rec['aglu_csll']) if has_aglu else None
+                r4020_total = rec['r4020_agregado'] if has_r4020 else None
 
-            rec['diferenca'] = max([rec['valor_erp'], rec['valor_aglu'], rec['valor_reinf']]) - min([rec['valor_erp'], rec['valor_aglu'], rec['valor_reinf']])
-            
-            rec['valor_erp_fmt'] = f"R$ {rec['valor_erp']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
-            rec['valor_aglu_fmt'] = f"R$ {rec['valor_aglu']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
-            rec['valor_reinf_fmt'] = f"R$ {rec['valor_reinf']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+                active_vals = []
+                if has_se2: active_vals.append(('SE2', se2_pcc))
+                if has_aglu: active_vals.append(('Aglu.', aglu_total))
+                if has_r4020: active_vals.append(('R-4020', r4020_total))
+
+                non_zero_vals = [v for _, v in active_vals if v is not None and v > 0]
+                zero_sources = [name for name, v in active_vals if v is not None and v == 0]
+
+                if len(non_zero_vals) == len(active_vals) and len(non_zero_vals) > 0:
+                    if len(set(non_zero_vals)) == 1:
+                        rec['status'] = 'Conciliado'
+                        if num_active == 3:
+                            rec['diagnostico'] = 'Sem divergências (SE2 = Aglu. = R-4020)'
+                        elif has_se2 and has_r4020:
+                            rec['diagnostico'] = 'Conciliado (Base SE2 = REINF R-4020)'
+                        elif has_se2 and has_aglu:
+                            rec['diagnostico'] = 'Conciliado (Base SE2 = Aglutinação)'
+                        elif has_aglu and has_r4020:
+                            rec['diagnostico'] = 'Conciliado (Aglutinação = REINF R-4020)'
+                        conciliados += 1
+                        diff = Decimal('0.00')
+                    else:
+                        rec['status'] = 'Divergente'
+                        rec['diagnostico'] = 'Divergência de Valores'
+                        divergentes += 1
+                        diff = max(non_zero_vals) - min(non_zero_vals)
+                elif len(non_zero_vals) == 0:
+                    continue
+                else:
+                    rec['status'] = 'Ausente'
+                    rec['diagnostico'] = f"Ausente em: {', '.join(zero_sources)}"
+                    ausentes += 1
+                    diff = max(non_zero_vals) if non_zero_vals else Decimal('0.00')
+                
+                rec['valor_erp'] = float(se2_pcc) if has_se2 else None
+                rec['valor_aglu'] = float(aglu_total) if has_aglu else None
+                rec['valor_reinf'] = float(r4020_total) if has_r4020 else None
+                rec['diferenca'] = float(diff)
+
+            rec['valor_erp_fmt'] = f"R$ {rec['valor_erp']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') if rec['valor_erp'] is not None else '-'
+            rec['valor_aglu_fmt'] = f"R$ {rec['valor_aglu']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') if rec['valor_aglu'] is not None else '-'
+            rec['valor_reinf_fmt'] = f"R$ {rec['valor_reinf']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') if rec['valor_reinf'] is not None else '-'
             rec['diferenca_fmt'] = f"R$ {rec['diferenca']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
             
             results.append(rec)
@@ -561,5 +636,6 @@ class CSRFReconciler:
                 'conciliados': conciliados,
                 'divergentes': divergentes,
                 'ausentes': ausentes
-            }
+            },
+            'num_relatorios': num_active
         }

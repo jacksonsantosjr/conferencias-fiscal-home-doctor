@@ -771,27 +771,31 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
             r4020_bytes = fields.get('r4020_file')
             aglu_filename = fields.get('aglu_file_filename', '').decode('utf-8', errors='replace').lower() if isinstance(fields.get('aglu_file_filename'), bytes) else str(fields.get('aglu_file_filename', '')).lower()
 
-            if not sf1_bytes or not aglu_bytes or not r4020_bytes:
-                self.send_json_response({"success": False, "error": "Todos os três arquivos de IRRF (SF1, Aglutinação e R-4020) devem ser anexados."})
+            num_files = sum([1 for f in [sf1_bytes, aglu_bytes, r4020_bytes] if f])
+            if num_files < 2:
+                self.send_json_response({"success": False, "error": "Pelo menos 2 dos 3 relatórios de IRRF (SF1, Aglutinação ou R-4020) devem ser anexados."})
                 return
 
             irrf_parser = IRRFReconciler()
             
-            try:
-                irrf_parser.parse_sf1(io.BytesIO(sf1_bytes))
-            except Exception as e:
-                print(f"Erro ao processar SF1: {e}")
+            if sf1_bytes:
+                try:
+                    irrf_parser.parse_sf1(io.BytesIO(sf1_bytes))
+                except Exception as e:
+                    print(f"Erro ao processar SF1: {e}")
 
-            try:
-                is_excel_aglu = aglu_filename.endswith(('.xlsx', '.xls', '.csv'))
-                irrf_parser.parse_aglutinacao(io.BytesIO(aglu_bytes), is_excel=is_excel_aglu)
-            except Exception as e:
-                print(f"Erro ao processar Aglutinacao: {e}")
+            if aglu_bytes:
+                try:
+                    is_excel_aglu = aglu_filename.endswith(('.xlsx', '.xls', '.csv'))
+                    irrf_parser.parse_aglutinacao(io.BytesIO(aglu_bytes), is_excel=is_excel_aglu)
+                except Exception as e:
+                    print(f"Erro ao processar Aglutinacao: {e}")
 
-            try:
-                irrf_parser.parse_r4020(io.BytesIO(r4020_bytes))
-            except Exception as e:
-                print(f"Erro ao processar R-4020: {e}")
+            if r4020_bytes:
+                try:
+                    irrf_parser.parse_r4020(io.BytesIO(r4020_bytes))
+                except Exception as e:
+                    print(f"Erro ao processar R-4020: {e}")
             
             result = irrf_parser.reconcile()
 
@@ -827,27 +831,31 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
             r4020_bytes = fields.get('r4020_file')
             aglu_filename = fields.get('aglu_file_filename', '').decode('utf-8', errors='replace').lower() if isinstance(fields.get('aglu_file_filename'), bytes) else str(fields.get('aglu_file_filename', '')).lower()
 
-            if not se2_bytes or not aglu_bytes or not r4020_bytes:
-                self.send_json_response({"success": False, "error": "Todos os três arquivos de CSRF (SE2, Aglutinação e R-4020) devem ser anexados."})
+            num_files = sum([1 for f in [se2_bytes, aglu_bytes, r4020_bytes] if f])
+            if num_files < 2:
+                self.send_json_response({"success": False, "error": "Pelo menos 2 dos 3 relatórios de CSRF (SE2, Aglutinação ou R-4020) devem ser anexados."})
                 return
 
             csrf_parser = CSRFReconciler()
             
-            try:
-                csrf_parser.parse_se2(io.BytesIO(se2_bytes))
-            except Exception as e:
-                print(f"Erro ao processar SE2: {e}")
+            if se2_bytes:
+                try:
+                    csrf_parser.parse_se2(io.BytesIO(se2_bytes))
+                except Exception as e:
+                    print(f"Erro ao processar SE2: {e}")
 
-            try:
-                is_excel_aglu = aglu_filename.endswith(('.xlsx', '.xls', '.csv'))
-                csrf_parser.parse_aglutinacao(io.BytesIO(aglu_bytes), is_excel=is_excel_aglu)
-            except Exception as e:
-                print(f"Erro ao processar Aglutinacao CSRF: {e}")
+            if aglu_bytes:
+                try:
+                    is_excel_aglu = aglu_filename.endswith(('.xlsx', '.xls', '.csv'))
+                    csrf_parser.parse_aglutinacao(io.BytesIO(aglu_bytes), is_excel=is_excel_aglu)
+                except Exception as e:
+                    print(f"Erro ao processar Aglutinacao CSRF: {e}")
 
-            try:
-                csrf_parser.parse_r4020(io.BytesIO(r4020_bytes))
-            except Exception as e:
-                print(f"Erro ao processar R-4020 CSRF: {e}")
+            if r4020_bytes:
+                try:
+                    csrf_parser.parse_r4020(io.BytesIO(r4020_bytes))
+                except Exception as e:
+                    print(f"Erro ao processar R-4020 CSRF: {e}")
             
             result = csrf_parser.reconcile()
 
