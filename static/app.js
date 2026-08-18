@@ -375,7 +375,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const searchInput = document.getElementById('searchInput');
         if (standardTableWrapper) standardTableWrapper.style.display = 'block';
         if (piscofinsResultsCards) piscofinsResultsCards.style.display = 'none';
-        if (tabGroup) tabGroup.style.display = 'flex';
+        if (tabGroup) {
+          tabGroup.style.display = 'flex';
+          tabGroup.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          const tabAll = tabGroup.querySelector('.tab-btn[data-tab="all"]');
+          if (tabAll) tabAll.classList.add('active');
+        }
+        activeTab = 'all';
         if (searchInput) searchInput.style.display = 'block';
 
 
@@ -1203,6 +1209,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const dashboardBalanceteAudit = document.getElementById('dashboardBalanceteAudit');
     if (dashboardBalanceteAudit) dashboardBalanceteAudit.style.display = 'none';
     resultsSection.style.display = 'none';
+    activeTab = 'all';
+    if (tabGroup) {
+      tabGroup.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      const tabAll = tabGroup.querySelector('.tab-btn[data-tab="all"]');
+      if (tabAll) tabAll.classList.add('active');
+    }
     const irrfResults = document.getElementById('irrf-results');
     if (irrfResults) irrfResults.style.display = 'none';
     const csrfResultsSection = document.getElementById('csrf-results');
@@ -1544,8 +1556,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('searchInput');
     if (standardTableWrapper) standardTableWrapper.style.display = 'block';
     if (piscofinsResultsCards) piscofinsResultsCards.style.display = 'none';
-    if (tabGroup) tabGroup.style.display = 'flex';
-    if (searchInput) searchInput.style.display = 'block';
+    if (tabGroup) {
+      tabGroup.style.display = 'flex';
+      tabGroup.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      const tabAll = tabGroup.querySelector('.tab-btn[data-tab="all"]');
+      if (tabAll) tabAll.classList.add('active');
+    }
+    activeTab = 'all';
+    if (searchInput) {
+      searchInput.style.display = 'block';
+      searchInput.value = '';
+    }
 
     resultsSection.style.display = 'block';
     
@@ -2319,8 +2340,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('searchInput');
     if (standardTableWrapper) standardTableWrapper.style.display = 'block';
     if (piscofinsResultsCards) piscofinsResultsCards.style.display = 'none';
-    if (tabGroup) tabGroup.style.display = 'flex';
-    if (searchInput) searchInput.style.display = 'block';
+    if (tabGroup) {
+      tabGroup.style.display = 'flex';
+      tabGroup.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      const tabAll = tabGroup.querySelector('.tab-btn[data-tab="all"]');
+      if (tabAll) tabAll.classList.add('active');
+    }
+    activeTab = 'all';
+    if (searchInput) {
+      searchInput.style.display = 'block';
+      searchInput.value = '';
+    }
 
     dashboardGrid.style.display = 'grid';
     document.getElementById('uploadFormContainer').style.display = 'none';
@@ -2514,8 +2544,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('searchInput');
     if (standardTableWrapper) standardTableWrapper.style.display = 'block';
     if (piscofinsResultsCards) piscofinsResultsCards.style.display = 'none';
-    if (tabGroup) tabGroup.style.display = 'flex';
-    if (searchInput) searchInput.style.display = 'block';
+    if (tabGroup) {
+      tabGroup.style.display = 'flex';
+      tabGroup.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      const tabAll = tabGroup.querySelector('.tab-btn[data-tab="all"]');
+      if (tabAll) tabAll.classList.add('active');
+    }
+    activeTab = 'all';
+    if (searchInput) {
+      searchInput.style.display = 'block';
+      searchInput.value = '';
+    }
 
     dashboardGrid.style.display = 'grid';
     document.getElementById('uploadFormContainer').style.display = 'none';

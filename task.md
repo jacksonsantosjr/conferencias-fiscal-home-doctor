@@ -13,5 +13,5 @@
 - [x] Refinamento da lógica de ISS Retido para Belo Horizonte no módulo ISS Serv. Prestados <!-- id: 10 -->
 - [x] Separação dos módulos IRRF e CSRF (PCC) na Sidebar da Interface <!-- id: 11 -->
 - [x] Correção do processamento de relatórios do módulo IRRF (Parser Multipart de arquivos binários pesados, tratamento de erros e resiliência no parsing do Excel/PDF) <!-- id: 12 -->
-
+- [x] Ajuste do filtro padrão da tabela de resultados para 'Todas' em todos os módulos de conferência <!-- id: 13 -->
 
