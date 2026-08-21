@@ -892,18 +892,18 @@ class ReconciliationHandler(http.server.SimpleHTTPRequestHandler):
             bal_rec_bytes = fields.get('balancete_receita_file')
             bal_recup_bytes = fields.get('balancete_recuperar_file')
 
-            if not sft_bytes or not glosas_bytes or not retencao_bytes:
+            if not sft_bytes:
                 self.send_json_response({
                     "success": False, 
-                    "error": "Os relatórios de SFT, Glosas e Retenções PIS/COFINS são obrigatórios."
+                    "error": "O relatório SFT (Faturamento Bruto) é obrigatório para iniciar a apuração."
                 })
                 return
 
             reconciler = PisCofinsReconciler()
             result = reconciler.reconcile(
                 sft_file=io.BytesIO(sft_bytes),
-                glosas_file=io.BytesIO(glosas_bytes),
-                retencao_file=io.BytesIO(retencao_bytes),
+                glosas_file=io.BytesIO(glosas_bytes) if glosas_bytes else None,
+                retencao_file=io.BytesIO(retencao_bytes) if retencao_bytes else None,
                 balancete_receita=io.BytesIO(bal_rec_bytes) if bal_rec_bytes else None,
                 balancete_recuperar=io.BytesIO(bal_recup_bytes) if bal_recup_bytes else None
             )

@@ -159,9 +159,11 @@ class PisCofinsReconciler:
 
         return df_filtered
 
-    def parse_glosas(self, file_source: Union[str, bytes, io.BytesIO]) -> Dict[str, float]:
+    def parse_glosas(self, file_source: Optional[Union[str, bytes, io.BytesIO]]) -> Dict[str, float]:
         """Processa a planilha de Glosas na aba Dinâmica."""
         glosas_por_prefixo = {}
+        if not file_source:
+            return glosas_por_prefixo
         try:
             if isinstance(file_source, bytes):
                 file_source = io.BytesIO(file_source)
@@ -225,9 +227,11 @@ class PisCofinsReconciler:
 
         return glosas_por_prefixo
 
-    def parse_retencoes(self, file_source: Union[str, bytes, io.BytesIO]) -> Dict[str, Dict[str, float]]:
+    def parse_retencoes(self, file_source: Optional[Union[str, bytes, io.BytesIO]]) -> Dict[str, Dict[str, float]]:
         """Processa a planilha de Retenções (PIS conta 113090003 e COFINS conta 113090002)."""
         retencoes = {'pis': {}, 'cofins': {}}
+        if not file_source:
+            return retencoes
         try:
             if isinstance(file_source, bytes):
                 file_source = io.BytesIO(file_source)
@@ -345,7 +349,7 @@ class PisCofinsReconciler:
 
         return res
 
-    def reconcile(self, sft_file, glosas_file, retencao_file, balancete_receita=None, balancete_recuperar=None) -> Dict[str, Any]:
+    def reconcile(self, sft_file, glosas_file=None, retencao_file=None, balancete_receita=None, balancete_recuperar=None) -> Dict[str, Any]:
         """Executa a conciliação completa e constrói o relatório analítico."""
         df_sft = self.parse_sft(sft_file)
         glosas_map = self.parse_glosas(glosas_file)
@@ -390,7 +394,7 @@ class PisCofinsReconciler:
             list(retencoes_map['cofins'].keys())
         )))
 
-        # Fallback: caso o relatório de retenção venha sem linhas, considera os prefixos do SFT/Glosas
+        # Fallback: caso o relatório de retenção venha sem linhas ou vazio, considera os prefixos do SFT/Glosas
         if not target_prefixes:
             target_prefixes = sorted(list(set(
                 list(faturamento_por_prefixo.keys()) + 
@@ -445,6 +449,13 @@ class PisCofinsReconciler:
             totais['cofins_retido'] += cof_ret
             totais['cofins_a_pagar'] += cof_pagar
 
+            # Validar status com o balancete de receita se fornecido
+            bal_rec_val = balancete_vals.get('receita_val', 0.0)
+            if bal_rec_val > 0 and pref == '2010':
+                status_pis = 'Conciliado' if abs(pis_dev - bal_rec_val) <= 0.05 else 'Divergente'
+            else:
+                status_pis = 'Conciliado'
+
             apuracao_pis_list.append({
                 'prefixo': pref,
                 'matriz': info['matriz'],
@@ -457,7 +468,7 @@ class PisCofinsReconciler:
                 'pis_devido': round(pis_dev, 2),
                 'pis_retido': round(pis_ret, 2),
                 'pis_a_pagar': round(pis_pagar, 2),
-                'status': 'Conciliado' if abs(pis_dev - (balancete_vals['receita_val'] if pref == '2010' else pis_dev)) <= 0.05 else 'Divergente'
+                'status': status_pis
             })
 
             apuracao_cofins_list.append({

@@ -1938,8 +1938,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnStartPisCofinsAudit) {
     btnStartPisCofinsAudit.addEventListener('click', async () => {
-      if (!selectedSftFile || !selectedGlosasFile || !selectedRetencaoFile) {
-        alert('Por favor, selecione os relatórios de SFT, Glosas e Retenções PIS/COFINS antes de iniciar a apuração.');
+      if (!selectedSftFile) {
+        alert('Por favor, selecione ao menos o Relatório SFT (Faturamento Bruto) para iniciar a apuração de PIS/COFINS.');
         return;
       }
 
@@ -1947,8 +1947,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'Apuração de PIS / COFINS (Regime Cumulativo)',
         [
           'Lendo Relatório SFT (Faturamento Bruto)...',
-          'Processando Deduções de Glosas (Aba Dinâmica)...',
-          'Analisando Razão Contábil de Retenções (PIS/COFINS)...',
+          selectedGlosasFile ? 'Processando Deduções de Glosas (Aba Dinâmica)...' : 'Calculando Base de Cálculo Líquida...',
+          selectedRetencaoFile ? 'Analisando Razão Contábil de Retenções (PIS/COFINS)...' : 'Calculando Alíquotas de PIS (0,65%) e COFINS (3,00%)...',
           'Extraindo Balancetes e Cruzando Apuração Fiscal...'
         ]
       );
@@ -1956,8 +1956,12 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const formData = new FormData();
         formData.append('sft_file', selectedSftFile);
-        formData.append('glosas_file', selectedGlosasFile);
-        formData.append('retencao_file', selectedRetencaoFile);
+        if (selectedGlosasFile) {
+          formData.append('glosas_file', selectedGlosasFile);
+        }
+        if (selectedRetencaoFile) {
+          formData.append('retencao_file', selectedRetencaoFile);
+        }
 
         if (selectedBalancetesPisFiles && selectedBalancetesPisFiles.length > 0) {
           for (const file of selectedBalancetesPisFiles) {
